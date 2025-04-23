@@ -14,3 +14,9 @@ The demo app will be an API that solves common tech interview problems, such as 
 - Create build pipeline (with github and gitlab)
 - Create sample endpoints in each framework
 - Create sample test code (curl, postman, unit tests)
+
+## Challenges
+- Used archetype, see [generate.sh](generate.sh) for syntax. Important to update versioon before running.
+- Had to comment out the "exclude tomcat", or you can't run the website locally.
+- Had to increase log level to INFO in applications.properties, or you can't tell if Tomcat is running or on which port.
+- 
