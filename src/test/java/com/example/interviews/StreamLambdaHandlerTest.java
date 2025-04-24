@@ -56,7 +56,7 @@ public class StreamLambdaHandlerTest {
 
     @Test
     public void invalidResource_streamRequest_responds404() {
-        InputStream requestStream = new AwsProxyRequestBuilder("/pong", HttpMethod.GET)
+        InputStream requestStream = new AwsProxyRequestBuilder("/blerg", HttpMethod.GET)
                                             .header(HttpHeaders.ACCEPT, MediaType.APPLICATION_JSON)
                                             .buildStream();
         ByteArrayOutputStream responseStream = new ByteArrayOutputStream();

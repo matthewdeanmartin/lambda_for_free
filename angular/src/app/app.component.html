@@ -1,0 +1,19 @@
+<h1>Sliding Window Max Sum</h1>
+
+<form [formGroup]="form" (ngSubmit)="onSubmit()">
+  <label for="numbers">Enter numbers (comma-separated):</label><br>
+  <input id="numbers" formControlName="numbers" placeholder="1,2,3,4,5"><br><br>
+
+  <label for="windowSize">Window Size:</label><br>
+  <input id="windowSize" formControlName="windowSize" type="number" min="1"><br><br>
+
+  <button type="submit" [disabled]="form.invalid">Submit</button>
+</form>
+
+<div *ngIf="result !== null">
+  <p><strong>Max Sum:</strong> {{ result }}</p>
+</div>
+
+<div *ngIf="error">
+  <p style="color: red"><strong>Error:</strong> {{ error }}</p>
+</div>

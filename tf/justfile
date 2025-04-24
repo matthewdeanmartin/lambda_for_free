@@ -1,0 +1,52 @@
+#!/usr/bin/env just --justfile
+
+# Set the environment (dev or prod)
+ENVIRONMENT := "dev"
+TERRAFORM_OPTIONS := '-var="environment=' + ENVIRONMENT + '"'
+
+go_init:
+    go mod init modules/test
+
+go_update:
+  pwd
+  ls *.mod
+  go get -u github.com/gruntwork-io/terratest
+  cd test && go mod tidy -v -e
+
+
+# Formatting and Validation
+fmt:
+    terraform fmt
+    terraform validate
+
+# Terraform Plan (without applying)
+plan:
+    terraform plan {{TERRAFORM_OPTIONS}} -out=tfplan
+
+# Apply Terraform Plan
+apply:
+    terraform apply {{TERRAFORM_OPTIONS}} tfplan
+
+# Linting all Terraform files
+lint:
+    echo "No lint yet"
+
+test:
+    terraform test -test-directory=integration
+
+check:
+    pre-commit run --all-files
+
+# Run Terratest
+terratest:
+    go test ./test -v
+
+validate:
+    terraform validate
+
+destroy:
+    terraform destroy {{TERRAFORM_OPTIONS}}
+
+# Running all commands
+all: fmt lint validate plan apply terratest
+    @echo "Development steps completed successfully."
