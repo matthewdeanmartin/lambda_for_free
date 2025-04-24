@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Configuration
-BUCKET_NAME="lambda-for-free-react-asdf-ui"
+BUCKET_NAME="lambda-for-free-react-asd-ui"
 DIST_DIR="dist/"
 REGION="us-east-2"
 INDEX_FILE="index.html"

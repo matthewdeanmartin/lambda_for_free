@@ -28,7 +28,7 @@ resource "aws_apigatewayv2_api" "proxy" {
   protocol_type = "HTTP"
   cors_configuration {
     #  "http://lambda-for-free-asdf-ui.s3-website.us-east-2.amazonaws.com/"
-    allow_origins = [var.cors_origin, "http://lambda-for-free-react-asdf-ui.s3-website.us-east-2.amazonaws.com"]
+    allow_origins = var.cors_origin
     allow_headers = ["Content-Type","X-Amz-Date","Authorization","X-Api-Key","X-Amz-Security-Token"]
   }
 }

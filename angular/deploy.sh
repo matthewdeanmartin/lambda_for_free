@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Configuration
-BUCKET_NAME="lambda-for-free-asdf-ui"
+BUCKET_NAME="lambda-for-free-angular-asd-ui"
 PROJECT_NAME="angular"
 DIST_DIR="dist/$PROJECT_NAME/browser"
 BUILD_CONFIG="production"
