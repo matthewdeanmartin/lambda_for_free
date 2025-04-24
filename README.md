@@ -9,7 +9,10 @@ Goal is to demo running web server code in lambdas for nearly free on AWS
 ## Roadmap for demo code
 The demo app will be an API that solves common tech interview problems, such as fizzbuzz and sliding window.
 
-- Evaulate the 3+ different maven archetyes, project starter kits, spring starter templates
+- Evaluate the 3+ different starter projects:
+  - maven archetype (have to re-enable tomcat to run locally)
+  - Intellij project starter (No maven by default)
+  - spring starter templates (needs many assets from the java serverless container example: assembly, pom profiles, etc)
 - Create terraform to create minimal setup
 - Create build pipeline (with github and gitlab)
 - Create sample endpoints in each framework
@@ -19,4 +22,45 @@ The demo app will be an API that solves common tech interview problems, such as 
 - Used archetype, see [generate.sh](generate.sh) for syntax. Important to update versioon before running.
 - Had to comment out the "exclude tomcat", or you can't run the website locally.
 - Had to increase log level to INFO in applications.properties, or you can't tell if Tomcat is running or on which port.
-- 
+
+
+## Notes for Thurs 24
+- Angular code now calls the API Gateway
+- "proxy config" allows local website to call local API server.
+- Angular code deployed to s3 website.
+- CORS is handled by API Gateway (Although I'm sure Spring could handle the CORS requests too)
+- Terraform in place for API Gateway to logs errors. The web console by default doesn't provide error logging!
+- Java Serverless Container supports only v1 of the Api Gateway payload.
+
+## API Gateway vs Tomcat/ALB
+Request pipeline features
+- API Gateway can handle CORS. So can Spring.
+- API Gateway can handle rate limiting on a per acct/per route basis.
+- API Gateway can handle Authentication/Authorization (via lambda authorizer & JWT/OAUTH)
+
+Routing
+- API Gateway can route based on URL paths.
+  - Or you can just forward everything to one lambda and let Spring route to a controller.
+  - Or you can route to a mixture of microservices, lambdas, or AWS APIs
+- API Gateway can handle stages routing (stages) and version routing (routes)
+
+Metadata
+- API Gateway can import/export OpenAPI
+
+Domains and Certs
+- API Gateway can do the same custom domain, HTTPS cert features of an ELB/ALB
+
+Request transformation
+- API Gateway can do minor tweaking of headers (parameter mapping)
+
+30 second timeout!
+No security groups, only WAF
+
+
+## TODO
+- Work on SQS & other async patterns.
+  - API Gateway sends SQS message, Lambda handles it stores result, client polls another end point for result.
+  - API Gateway call lambda, lambda creates SQS message, client polls
+
+- Work on Saga patterns
+  - API Gateway calls step function, step function triggers SQS, Lambda and calls a compensating/rollback if fails.
