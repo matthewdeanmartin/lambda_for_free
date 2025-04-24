@@ -4,8 +4,8 @@ Goal is to demo running web server code in lambdas for nearly free on AWS
 ## Demo site:
 - [Angular UI](http://lambda-for-free-asdf-ui.s3-website.us-east-2.amazonaws.com/)
 - [React UI](http://lambda-for-free-react-asdf-ui.s3-website.us-east-2.amazonaws.com/)
-- [Swagger UI](http://lambda-for-free-asdf-ui.s3-website.us-east-2.amazonaws.com/swagger-ui.html)
-- [Swagger Json](http://lambda-for-free-asdf-ui.s3-website.us-east-2.amazonaws.com/v3/api-docs)
+- [Swagger UI](https://hlg0m0h7e6.execute-api.us-east-2.amazonaws.com/swagger-ui.html)
+- [Swagger Json](https://hlg0m0h7e6.execute-api.us-east-2.amazonaws.com/v3/api-docs)
 
 ## Three main approaches
 - [Lambda Java Core](https://docs.aws.amazon.com/lambda/latest/dg/lambda-java.html) This is the simplest, but it is not a framework. Other than handling the serialization to bind to the function, all other common application problems normally solved by a framework will have to be reinvented from scratch, which could take years and will still not be as good as Spring.
