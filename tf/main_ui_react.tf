@@ -1,8 +1,8 @@
 locals {
-  angular_bucket = "lambda-for-free-asdf-ui"
+  react_bucket = "lambda-for-free-react-asdf-ui"
 }
-resource "aws_s3_bucket" "ui" {
-  bucket = local.angular_bucket
+resource "aws_s3_bucket" "ui_react" {
+  bucket = local.react_bucket
   tags = {
     Name        = "UI Bucket"
     Environment = "Dev"
@@ -10,8 +10,8 @@ resource "aws_s3_bucket" "ui" {
 }
 
 
-resource "aws_s3_bucket_public_access_block" "ui_public" {
-  bucket = aws_s3_bucket.ui.id
+resource "aws_s3_bucket_public_access_block" "ui_public_react" {
+  bucket = aws_s3_bucket.ui_react.id
 
   block_public_acls       = false
   block_public_policy     = false
@@ -19,8 +19,8 @@ resource "aws_s3_bucket_public_access_block" "ui_public" {
   restrict_public_buckets = false
 }
 
-resource "aws_s3_bucket_policy" "ui_policy" {
-  bucket = aws_s3_bucket.ui.id
+resource "aws_s3_bucket_policy" "ui_policy_react" {
+  bucket = aws_s3_bucket.ui_react.id
 
   policy = jsonencode({
     Version = "2012-10-17",
@@ -30,14 +30,14 @@ resource "aws_s3_bucket_policy" "ui_policy" {
         Effect    = "Allow",
         Principal = "*",
         Action    = "s3:GetObject",
-        Resource  = "arn:aws:s3:::${local.angular_bucket}/*"
+        Resource  = "arn:aws:s3:::${local.react_bucket}/*"
       }
     ]
   })
 }
 
-resource "aws_s3_bucket_website_configuration" "website" {
-  bucket = aws_s3_bucket.ui.id
+resource "aws_s3_bucket_website_configuration" "website_react" {
+  bucket = aws_s3_bucket.ui_react.id
 
   index_document {
     suffix = "index.html"

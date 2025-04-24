@@ -11,6 +11,15 @@ resource "aws_lambda_function" "compute" {
   # source = "terraform-aws-modules/lambda/aws"
   # create_package         = false
   # local_existing_package = "./lambda_shim/main.zip"
+
+
+  # Snapstart and Performance Tuning
+  timeout     = "3"
+  memory_size = "128"
+  snap_start {
+    apply_on ="PublishedVersions"
+  }
+  publish = true
 }
 
 # endpoint
@@ -19,7 +28,7 @@ resource "aws_apigatewayv2_api" "proxy" {
   protocol_type = "HTTP"
   cors_configuration {
     #  "http://lambda-for-free-asdf-ui.s3-website.us-east-2.amazonaws.com/"
-    allow_origins = [var.cors_origin]
+    allow_origins = [var.cors_origin, "http://lambda-for-free-react-asdf-ui.s3-website.us-east-2.amazonaws.com"]
     allow_headers = ["Content-Type","X-Amz-Date","Authorization","X-Api-Key","X-Amz-Security-Token"]
   }
 }

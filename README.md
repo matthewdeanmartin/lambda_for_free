@@ -3,7 +3,7 @@ Goal is to demo running web server code in lambdas for nearly free on AWS
 
 ## Demo site:
 - [Angular UI](http://lambda-for-free-asdf-ui.s3-website.us-east-2.amazonaws.com/)
-- TODO: React UI
+- [React UI](http://lambda-for-free-react-asdf-ui.s3-website.us-east-2.amazonaws.com/)
 - [Swagger UI](http://lambda-for-free-asdf-ui.s3-website.us-east-2.amazonaws.com/swagger-ui.html)
 - [Swagger Json](http://lambda-for-free-asdf-ui.s3-website.us-east-2.amazonaws.com/v3/api-docs)
 
@@ -15,14 +15,6 @@ Goal is to demo running web server code in lambdas for nearly free on AWS
 ## Roadmap for demo code
 The demo app will be an API that solves common tech interview problems, such as fizzbuzz and sliding window.
 
-- Evaluate the 3+ different starter projects:
-  - maven archetype (have to re-enable tomcat to run locally)
-  - Intellij project starter (No maven by default)
-  - spring starter templates (needs many assets from the java serverless container example: assembly, pom profiles, etc)
-- Create terraform to create minimal setup
-- Create build pipeline (with github and gitlab)
-- Create sample endpoints in each framework
-- Create sample test code (curl, postman, unit tests)
 
 ## Challenges
 - Used archetype, see [generate.sh](generate.sh) for syntax. Important to update versioon before running.
@@ -31,12 +23,18 @@ The demo app will be an API that solves common tech interview problems, such as 
 
 
 ## Notes for Thurs 24
-- Angular code now calls the API Gateway
-- "proxy config" allows local website to call local API server.
-- Angular code deployed to s3 website.
-- CORS is handled by API Gateway (Although I'm sure Spring could handle the CORS requests too)
-- Terraform in place for API Gateway to logs errors. The web console by default doesn't provide error logging!
-- Java Serverless Container supports only v1 of the Api Gateway payload.
+- Angular UI
+  - Angular code now calls the API Gateway
+  - "proxy config" allows local website to call local API server.
+  - Angular code deployed to s3 website.
+- API Gateway
+  - CORS is handled by API Gateway (Although I'm sure Spring could handle the CORS requests too)
+  - Terraform in place for API Gateway to logs errors. The web console by default doesn't provide error logging!
+  - Java Serverless Container supports only v1 of the Api Gateway payload.
+- Snapstart
+  - Snapshot is mandatory because of Java's slow start problems.
+  - Other initialization tricks exist
+  - There are snapstart events that you may need to register to rebuild/close things like connection strings that were loaded on start
 
 ## API Gateway vs Tomcat/ALB
 Request pipeline features
@@ -63,10 +61,8 @@ Request transformation
 No security groups, only WAF
 
 
-## TODO
-- Work on SQS & other async patterns.
-  - API Gateway sends SQS message, Lambda handles it stores result, client polls another end point for result.
-  - API Gateway call lambda, lambda creates SQS message, client polls
 
-- Work on Saga patterns
-  - API Gateway calls step function, step function triggers SQS, Lambda and calls a compensating/rollback if fails.
+## Architectual patterns to try out
+- API Gateway + SQS + Lambda with polling
+- API Gateway + SQS + Lambda with callback
+- API Gateway + SQS + Lambda with fire and forget/batch processing
