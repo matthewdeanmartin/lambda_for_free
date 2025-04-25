@@ -1,26 +1,23 @@
 # lambda_for_free
-Goal is to demo running web server code in lambdas for nearly free on AWS
+The goal is to demo multiple design and architectural patterns that use AWS lambdas and API Gateway.
 
-## Demo site:
-- [Angular UI](http://lambda-for-free-asdf-ui.s3-website.us-east-2.amazonaws.com/)
-- [React UI](http://lambda-for-free-react-asdf-ui.s3-website.us-east-2.amazonaws.com/)
+## Synchronous Spring with HTTP Api Gateway:
 - [Swagger UI](https://hlg0m0h7e6.execute-api.us-east-2.amazonaws.com/swagger-ui.html)
 - [Swagger Json](https://hlg0m0h7e6.execute-api.us-east-2.amazonaws.com/v3/api-docs)
+
+Corresponding UIs:
+- [Angular UI](http://lambda-for-free-asdf-ui.s3-website.us-east-2.amazonaws.com/)
+- [React UI](http://lambda-for-free-react-asdf-ui.s3-website.us-east-2.amazonaws.com/)
 
 ## Three main approaches
 - [Lambda Java Core](https://docs.aws.amazon.com/lambda/latest/dg/lambda-java.html) This is the simplest, but it is not a framework. Other than handling the serialization to bind to the function, all other common application problems normally solved by a framework will have to be reinvented from scratch, which could take years and will still not be as good as Spring.
 - [Spring Cloud Function](https://docs.spring.io/spring-cloud-function/docs/current/reference/html/spring-cloud-function.html) This lets you run Spring code in a function in any cloud (AWS, Azure, GCP). It does not have the full feature set of Spring Web. It requires code modification for replatforming. It has somewhat better support for responding to message queue events instead of web events.
 - [Serverless Java Container](https://github.com/aws/serverless-java-container/wiki/Quick-start---Spring-Boot3) This lets you run the same web code locally as in the lambda runtime. The API Gateway and Lambda become a transparent replacement for Tomcat. This code is ideal for replatformating and leaving open the option of switch to hosting in ECS should the organization's mandated authentication, logging prove to be incompatible with API Gateway. The other common reason for abandoning Lambda is that at high load, it become prohibitively expensive. At low load, lambdas are almost free.
 
-## Roadmap for demo code
-The demo app will be an API that solves common tech interview problems, such as fizzbuzz and sliding window.
 
-
-## Challenges
-- Used archetype, see [generate.sh](generate.sh) for syntax. Important to update versioon before running.
-- Had to comment out the "exclude tomcat", or you can't run the website locally.
-- Had to increase log level to INFO in applications.properties, or you can't tell if Tomcat is running or on which port.
-
+## AWS Docs
+- [Async with SQS](https://docs.aws.amazon.com/prescriptive-guidance/latest/patterns/integrate-amazon-api-gateway-with-amazon-sqs-to-handle-asynchronous-rest-apis.html)
+- [Async with SQS and REST AGW](https://github.com/aws-samples/asynchronous-event-processing-api-gateway-sqs-cdk)
 
 ## Notes for Thurs 24
 - Angular UI

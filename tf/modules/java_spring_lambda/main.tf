@@ -83,6 +83,7 @@ resource "aws_lambda_permission" "api_key" {
 resource "aws_cloudwatch_log_group" "logs" {
   # Suffix must match lambda name.
   name = "/aws/lambda/${local.lambda_name}"
+  retention_in_days = 5
 }
 
 

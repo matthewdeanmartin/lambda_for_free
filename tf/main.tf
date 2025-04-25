@@ -21,3 +21,17 @@ module "main_lambda" {
     # "http://lambda-for-free-react-asdf-ui.s3-website.us-east-2.amazonaws.com"
   ]
 }
+
+
+module "main_rest_gateway" {
+  source = "./modules/java_spring_lambda_rest_gateway"
+  # ${var.environment}-
+  name              = "tf-poc-rest-gateway"
+  lambda_entrypoint = "com.example.interviews.StreamLambdaHandler::handleRequest"
+  cors_origin = [
+    "http://${module.react_website.bucket_domain_name}",
+    "http://${module.angular_website.bucket_domain_name}"
+    # "http://${aws_s3_bucket_website_configuration.website.website_endpoint}",
+    # "http://lambda-for-free-react-asdf-ui.s3-website.us-east-2.amazonaws.com"
+  ]
+}
