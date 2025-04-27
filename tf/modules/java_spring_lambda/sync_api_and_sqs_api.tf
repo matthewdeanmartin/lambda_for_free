@@ -1,17 +1,14 @@
 locals {
-  lambda_name = "${var.name}-compute"
+  lambda_name = "${var.name}-web-api"
+  worker_name = "${var.name}-async-worker"
 }
-# compute
-resource "aws_lambda_function" "compute" {
+# web api
+resource "aws_lambda_function" "web_api" {
   function_name = local.lambda_name
   role          = aws_iam_role.jbs_lambda_role.arn
   handler       = var.lambda_entrypoint
   runtime       = "java21"
   filename      = "${path.module}/lambda_shim/main.zip"
-  # source = "terraform-aws-modules/lambda/aws"
-  # create_package         = false
-  # local_existing_package = "./lambda_shim/main.zip"
-
 
   # Snapstart and Performance Tuning
   timeout     = "3"
@@ -41,7 +38,7 @@ resource "aws_apigatewayv2_integration" "proxy" {
   # content_handling_strategy = "CONVERT_TO_TEXT" # not supported?
   description          = "${var.name}"
   integration_method   = "POST"
-  integration_uri      = aws_lambda_function.compute.invoke_arn
+  integration_uri      = aws_lambda_function.web_api.invoke_arn
   passthrough_behavior = "WHEN_NO_MATCH"
 
   # java serverless container doesn't support v2?
@@ -72,7 +69,7 @@ resource "aws_apigatewayv2_stage" "proxy" {
 resource "aws_lambda_permission" "api_key" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
-  function_name = aws_lambda_function.compute.function_name
+  function_name = aws_lambda_function.web_api.function_name
   principal = "apigateway.amazonaws.com"
   #  Suffix must match route name!
   source_arn    = "${aws_apigatewayv2_api.proxy.execution_arn}/*/*/{proxy+}"

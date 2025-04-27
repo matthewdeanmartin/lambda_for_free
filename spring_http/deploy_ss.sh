@@ -5,7 +5,7 @@
 set -euo pipefail
 
 # Inputs
-LAMBDA_FUNCTION_NAME="${1:-tf-poc-compute}"
+LAMBDA_FUNCTION_NAME="${1:-tf-poc-web-api}"
 ALIAS_NAME="${2:-}"
 ZIP_FILE="${3:-}"
 AWS_REGION="${4:-us-east-2}"

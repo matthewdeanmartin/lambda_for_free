@@ -1,6 +1,26 @@
 # lambda_for_free
 The goal is to demo multiple design and architectural patterns that use AWS lambdas and API Gateway.
 
+## Patterns Done so far:
+- Web server with serverside rendering in lambda (API Gateway HTTP-style +  Spring Boot in Lambda)
+  - (See other repo)
+- Spring Web API + API Gateway REST-style. In theory has more features and tasks that can be off loaded to API Gateway
+- Spring Web API + API Gateway HTTP-style. Very little offloaded to Gateway, but much simpler to setup and manage. 
+- TODO: Async patterns
+  - API Gateway to Lambda that only enqueues SQS messages, polls results. SQS messages read by Cloud Function.
+- TODO:
+  - Lambda Function URL. Can we cut out the API Gateway altogether?
+
+Why should API gateway talk direct to spring in java-serverless-container? Because it feels like web development and is web development.
+
+If your client isn't a web browser, then sure, consider making sdk/boto calls directly to your lambdas.
+
+Why should a lambda calling a lambda not using java-serverless-container? Because, unless there is HTTP call, there isn't any HTTP going on, so it is extra.
+
+## Didn't work
+- API Gateway to SQS to java-serverless-container. Requires more json transformation logic than is easy to implement with velocity templates.
+
+
 ## Synchronous Spring with HTTP Api Gateway:
 - [Swagger UI](https://hlg0m0h7e6.execute-api.us-east-2.amazonaws.com/swagger-ui.html)
 - [Swagger Json](https://hlg0m0h7e6.execute-api.us-east-2.amazonaws.com/v3/api-docs)
