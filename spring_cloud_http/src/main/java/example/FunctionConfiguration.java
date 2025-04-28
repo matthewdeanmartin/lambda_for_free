@@ -41,14 +41,18 @@ public class FunctionConfiguration {
 		//SpringApplication.run(FunctionConfiguration.class, args);
 	}
 
-	@Bean
-	public Function<String, String> uppercase() {
-		return value -> "value.toUpperCase()";
-	}
+//	@Bean
+//	public Function<String, String> uppercase() {
+//		return value -> "value.toUpperCase()";
+//	}
 	@Bean
 	public Function<SendRequest, String> logFunction() {
+		System.out.println("Inside logFunction");
 		return (SendRequest req) -> {
 			// Extract the payload, assuming it's a number for the logarithm calculation
+			System.out.println(Instant.now());
+			System.out.println(req);
+			System.out.println("Inside lambda returned by logFunction");
 			double inputValue;
 			try {
 				inputValue = Double.parseDouble(req.payload());
@@ -60,25 +64,28 @@ public class FunctionConfiguration {
 			double result = Math.log(inputValue);
 
 			// Create a unique messageId
-			String messageId = UUID.randomUUID().toString();
-			long now = Instant.now().toEpochMilli();
+//			String messageId = UUID.randomUUID().toString();
+//			long now = Instant.now().toEpochMilli();
 
-			// Prepare the result to be stored in DynamoDB
-			Map<String, AttributeValue> resultItem = Map.of(
-					"MessageId", AttributeValue.builder().s(messageId).build(),
-					"RecordType", AttributeValue.builder().s("RESULT").build(),
-					"payload", AttributeValue.builder().s(String.valueOf(result)).build(),
-					"completedAt", AttributeValue.builder().n(Long.toString(now)).build()
-			);
+//			// Prepare the result to be stored in DynamoDB
+//			Map<String, AttributeValue> resultItem = Map.of(
+//					"MessageId", AttributeValue.builder().s(messageId).build(),
+//					"RecordType", AttributeValue.builder().s("RESULT").build(),
+//					"payload", AttributeValue.builder().s(String.valueOf(result)).build(),
+//					"completedAt", AttributeValue.builder().n(Long.toString(now)).build()
+//			);
+//
+//			// Put the result into DynamoDB
+//			dynamoDbClient.putItem(PutItemRequest.builder()
+//					.tableName(tableName)
+//					.item(resultItem)
+//					.build());
 
-			// Put the result into DynamoDB
-			dynamoDbClient.putItem(PutItemRequest.builder()
-					.tableName(tableName)
-					.item(resultItem)
-					.build());
-
+			String sentence = "Logarithm of " + inputValue + " is " + result;
+			System.out.println("Inside logFunction");
+			System.out.println(sentence);
 			// Return the result (optional, depending on your use case)
-			return "Logarithm of " + inputValue + " is " + result;
+			return sentence;
 		};
 	}
 }
