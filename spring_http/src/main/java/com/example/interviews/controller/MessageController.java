@@ -1,10 +1,12 @@
 package com.example.interviews.controller;
-// MessageController.java
+
 import com.example.interviews.models.PendingRequest;
 import com.example.interviews.models.SendRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.*;
 import software.amazon.awssdk.services.sqs.SqsClient;
@@ -21,43 +23,54 @@ public class MessageController {
 
     private static final int RETRY_AFTER_SECONDS = 5;
 
-    private final SqsClient sqs;
-    private final DynamoDbClient dynamo;
+    private SqsClient sqs;
+    private DynamoDbClient dynamo;
     private final String queueUrl;
     private final String tableName;
+    private final String region;
 
     public MessageController(
-            SqsClient sqs,
-            DynamoDbClient dynamo,
             @Value("${app.sqs.queue-url}") String queueUrl,
-            @Value("${app.dynamo.table-name}") String tableName
+            @Value("${app.dynamo.table-name}") String tableName,
+            @Value("${aws.region:us-east-2}") String region
     ) {
-        this.sqs = sqs;
-        this.dynamo = dynamo;
+        this.region = region;
         this.queueUrl = queueUrl;
         this.tableName = tableName;
+    }
+
+    private void create_clients() {
+        this.sqs = SqsClient.builder()
+                .region(Region.of(this.region))
+                // .credentialsProvider(DefaultCredentialsProvider.create())
+                .build();
+
+        this.dynamo = DynamoDbClient.builder()
+                .region(Region.of(this.region))
+                // .credentialsProvider(DefaultCredentialsProvider.create())
+                .build();
     }
 
     /** 1) Send a message */
     @PostMapping
     public ResponseEntity<Void> send(@RequestBody SendRequest req) {
+        create_clients();
         String messageId = UUID.randomUUID().toString();
         long now = Instant.now().toEpochMilli();
 
-        // Write REQUEST item with ownerId
-        Map<String,AttributeValue> requestItem = Map.of(
+        Map<String, AttributeValue> requestItem = Map.of(
                 "MessageId",  AttributeValue.builder().s(messageId).build(),
                 "RecordType", AttributeValue.builder().s("REQUEST").build(),
                 "ownerId",    AttributeValue.builder().s(req.ownerId()).build(),
                 "payload",    AttributeValue.builder().s(req.payload()).build(),
                 "createdAt",  AttributeValue.builder().n(Long.toString(now)).build()
         );
+
         dynamo.putItem(PutItemRequest.builder()
                 .tableName(tableName)
                 .item(requestItem)
                 .build());
 
-        // Send to SQS, include MessageId and OwnerId as message attributes
         sqs.sendMessage(SendMessageRequest.builder()
                 .queueUrl(queueUrl)
                 .messageBody(req.payload())
@@ -73,7 +86,6 @@ public class MessageController {
                 ))
                 .build());
 
-        // 202 Accepted + Location header
         URI location = URI.create("/messages/" + messageId);
         return ResponseEntity
                 .accepted()
@@ -87,7 +99,7 @@ public class MessageController {
             @PathVariable String id,
             @RequestHeader("X-Owner-Id") String ownerId
     ) {
-        // Fetch both REQUEST, RESULT, CANCELLED items
+        create_clients();
         QueryResponse qr = dynamo.query(QueryRequest.builder()
                 .tableName(tableName)
                 .keyConditionExpression("MessageId = :mid")
@@ -96,55 +108,48 @@ public class MessageController {
                 ))
                 .build());
 
-        // Ensure request exists and owner matches
-        Map<String,AttributeValue> requestItem = qr.items().stream()
+        Map<String, AttributeValue> requestItem = qr.items().stream()
                 .filter(item -> "REQUEST".equals(item.get("RecordType").s()))
                 .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("No such request"));
+
         if (!ownerId.equals(requestItem.get("ownerId").s())) {
             return ResponseEntity.status(404).build();
         }
 
-        // Check for cancellation
         boolean isCancelled = qr.items().stream()
                 .anyMatch(item -> "CANCELLED".equals(item.get("RecordType").s()));
         if (isCancelled) {
-            // Clean up REQUEST + CANCELLED
             batchDelete(id, List.of("REQUEST", "CANCELLED"));
-            Map<String,String> body = Map.of("status", "CANCELLED");
+            Map<String, String> body = Map.of("status", "CANCELLED");
             return ResponseEntity
                     .ok()
                     .header("Content-Location", "/messages/" + id)
                     .body(body);
         }
 
-        // Check for RESULT
-        Optional<Map<String,AttributeValue>> resultOpt = qr.items().stream()
+        Optional<Map<String, AttributeValue>> resultOpt = qr.items().stream()
                 .filter(item -> "RESULT".equals(item.get("RecordType").s()))
                 .findFirst();
         if (resultOpt.isEmpty()) {
-            // Still pending → 202 + Retry-After
-            Map<String,String> body = Map.of("status", "PENDING");
+            Map<String, String> body = Map.of("status", "PENDING");
             return ResponseEntity
                     .accepted()
                     .header("Retry-After", String.valueOf(RETRY_AFTER_SECONDS))
                     .body(body);
         }
 
-        // Final result → extract resultData & error
-        Map<String,AttributeValue> resultItem = resultOpt.get();
+        Map<String, AttributeValue> resultItem = resultOpt.get();
         String error = resultItem.containsKey("error") ? resultItem.get("error").s() : null;
-        Map<String,Object> resultData = Map.of(
+        Map<String, Object> resultData = Map.of(
                 "resultData", resultItem.getOrDefault("resultData", AttributeValue.builder().nul(true).build()).s(),
                 "completedAt", Long.parseLong(resultItem.get("completedAt").n())
         );
 
-        // Clean up REQUEST + RESULT
         batchDelete(id, List.of("REQUEST", "RESULT"));
 
-        // 200 OK + result body + Content-Location
         Object responseBody = (error != null)
-                ? Map.<String,Object>of("error", error)
+                ? Map.<String, Object>of("error", error)
                 : resultData;
 
         return ResponseEntity
@@ -159,8 +164,8 @@ public class MessageController {
             @PathVariable String id,
             @RequestHeader("X-Owner-Id") String ownerId
     ) {
-        // Verify ownership
-        Map<String,AttributeValue> reqItem = dynamo.getItem(GetItemRequest.builder()
+        create_clients();
+        Map<String, AttributeValue> reqItem = dynamo.getItem(GetItemRequest.builder()
                         .tableName(tableName)
                         .key(Map.of(
                                 "MessageId", AttributeValue.builder().s(id).build(),
@@ -168,18 +173,19 @@ public class MessageController {
                         ))
                         .build())
                 .item();
+
         if (reqItem == null || !ownerId.equals(reqItem.get("ownerId").s())) {
             return ResponseEntity.status(404).build();
         }
 
-        // Write CANCELLED record
         long now = Instant.now().toEpochMilli();
-        Map<String,AttributeValue> cancelItem = Map.of(
-                "MessageId",  AttributeValue.builder().s(id).build(),
-                "RecordType", AttributeValue.builder().s("CANCELLED").build(),
-                "ownerId",    AttributeValue.builder().s(ownerId).build(),
-                "cancelledAt",AttributeValue.builder().n(Long.toString(now)).build()
+        Map<String, AttributeValue> cancelItem = Map.of(
+                "MessageId",   AttributeValue.builder().s(id).build(),
+                "RecordType",  AttributeValue.builder().s("CANCELLED").build(),
+                "ownerId",     AttributeValue.builder().s(ownerId).build(),
+                "cancelledAt", AttributeValue.builder().n(Long.toString(now)).build()
         );
+
         dynamo.putItem(PutItemRequest.builder()
                 .tableName(tableName)
                 .item(cancelItem)
@@ -193,7 +199,7 @@ public class MessageController {
     public ResponseEntity<List<PendingRequest>> listInflight(
             @RequestHeader("X-Owner-Id") String ownerId
     ) {
-        // NOTE: for production, create a GSI on ownerId+RecordType rather than scan
+        create_clients();
         ScanResponse sr = dynamo.scan(ScanRequest.builder()
                 .tableName(tableName)
                 .filterExpression("ownerId = :oid AND RecordType = :req")
@@ -215,9 +221,10 @@ public class MessageController {
 
     /** Helper to batch‐delete the REQUEST, RESULT, CANCELLED items by MessageId */
     private void batchDelete(String messageId, List<String> types) {
+        create_clients();
         List<WriteRequest> deletes = types.stream()
-                .map(type -> Map.<String,AttributeValue>of(
-                        "MessageId",  AttributeValue.builder().s(messageId).build(),
+                .map(type -> Map.<String, AttributeValue>of(
+                        "MessageId", AttributeValue.builder().s(messageId).build(),
                         "RecordType", AttributeValue.builder().s(type).build()
                 ))
                 .map(key -> WriteRequest.builder()

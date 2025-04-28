@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Import;
 // We use direct @Import instead of @ComponentScan to speed up cold starts
 @ComponentScan(basePackages = "com.example.interviews.controller")
 //@Import({ PingController.class, InterviewController.class, MessageController.class })
+// @Import(AwsConfig.class)
 public class Application {
 
     public static void main(String[] args) {

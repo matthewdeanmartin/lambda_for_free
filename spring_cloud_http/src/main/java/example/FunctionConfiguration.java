@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
+import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
@@ -19,7 +20,7 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 @SpringBootApplication
 public class FunctionConfiguration {
 
-	private DynamoDbClient dynamoDbClient;
+	// private DynamoDbClient dynamoDbClient;
 	private String tableName;
 
 
@@ -27,10 +28,10 @@ public class FunctionConfiguration {
 		// No-arg constructor for AWS Lambda
 	}
 
-	@Autowired
-	public void setDynamoDbClient(DynamoDbClient dynamoDbClient) {
-		this.dynamoDbClient = dynamoDbClient;
-	}
+//	@Autowired
+//	public void setDynamoDbClient(DynamoDbClient dynamoDbClient) {
+//		this.dynamoDbClient = dynamoDbClient;
+//	}
 
 	@Value("${app.dynamo.table-name}")
 	public void setTableName(String tableName) {
@@ -49,15 +50,19 @@ public class FunctionConfiguration {
 	public Function<SendRequest, String> logFunction() {
 		System.out.println("Inside logFunction");
 		return (SendRequest req) -> {
+			// --- MANUALLY create DynamoDbClient ---
+			DynamoDbClient dynamoDbClient = DynamoDbClient.builder()
+					.region(Region.of(System.getenv().getOrDefault("AWS_REGION", "us-east-2")))
+					.build();
 			// Extract the payload, assuming it's a number for the logarithm calculation
 			System.out.println(Instant.now());
 			System.out.println(req);
 			System.out.println("Inside lambda returned by logFunction");
 			double inputValue;
 			try {
-				inputValue = Double.parseDouble(req.payload());
+				inputValue = Double.parseDouble(req.data());
 			} catch (NumberFormatException e) {
-				throw new IllegalArgumentException("Invalid input for logarithm calculation: " + req.payload());
+				throw new IllegalArgumentException("Invalid input for logarithm calculation: " + req.data());
 			}
 
 			// Calculate the logarithm

@@ -22,28 +22,28 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(InterviewController.class)
 public class InterviewControllerTest {
 
-    @TestConfiguration
-    public static class AwsConfig {
-
-        @Value("${aws.region:us-east-1}")
-        private String region;
-
-        @Bean
-        public SqsClient sqsClient() {
-            return SqsClient.builder()
-                    .region(Region.of(region))
-                    .credentialsProvider(DefaultCredentialsProvider.create())
-                    .build();
-        }
-
-        @Bean
-        public DynamoDbClient dynamoDbClient() {
-            return DynamoDbClient.builder()
-                    .region(Region.of(region))
-                    .credentialsProvider(DefaultCredentialsProvider.create())
-                    .build();
-        }
-    }
+//    @TestConfiguration
+//    public static class AwsConfig {
+//
+//        @Value("${aws.region:us-east-1}")
+//        private String region;
+//
+//        @Bean
+//        public SqsClient sqsClient() {
+//            return SqsClient.builder()
+//                    .region(Region.of(region))
+//                    .credentialsProvider(DefaultCredentialsProvider.create())
+//                    .build();
+//        }
+//
+//        @Bean
+//        public DynamoDbClient dynamoDbClient() {
+//            return DynamoDbClient.builder()
+//                    .region(Region.of(region))
+//                    .credentialsProvider(DefaultCredentialsProvider.create())
+//                    .build();
+//        }
+//    }
     @Autowired
     private MockMvc mockMvc;
 
