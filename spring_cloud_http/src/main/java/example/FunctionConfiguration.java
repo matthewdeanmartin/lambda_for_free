@@ -7,6 +7,7 @@ import java.util.UUID;
 import java.util.function.Function;
 
 import example.models.SendRequest;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -18,17 +19,34 @@ import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
 @SpringBootApplication
 public class FunctionConfiguration {
 
+	private DynamoDbClient dynamoDbClient;
+	private String tableName;
+
+
+	public FunctionConfiguration() {
+		// No-arg constructor for AWS Lambda
+	}
+
+	@Autowired
+	public void setDynamoDbClient(DynamoDbClient dynamoDbClient) {
+		this.dynamoDbClient = dynamoDbClient;
+	}
+
+	@Value("${app.dynamo.table-name}")
+	public void setTableName(String tableName) {
+		this.tableName = tableName;
+	}
+
 	public static void main(String[] args) {
 		//SpringApplication.run(FunctionConfiguration.class, args);
 	}
 
 	@Bean
 	public Function<String, String> uppercase() {
-		return value -> value.toUpperCase();
+		return value -> "value.toUpperCase()";
 	}
 	@Bean
-	public Function<SendRequest, String> logFunction(DynamoDbClient dynamoDbClient,
-													 @Value("${app.dynamo.table-name}") String tableName) {
+	public Function<SendRequest, String> logFunction() {
 		return (SendRequest req) -> {
 			// Extract the payload, assuming it's a number for the logarithm calculation
 			double inputValue;
