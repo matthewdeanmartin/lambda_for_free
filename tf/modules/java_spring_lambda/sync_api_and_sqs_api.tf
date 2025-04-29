@@ -12,7 +12,7 @@ resource "aws_lambda_function" "web_api" {
 
   # Snapstart and Performance Tuning
   timeout     = "3"
-  memory_size = "128"
+  memory_size = "512" # Cheapest, not fastest, lower risks timeouts for aws sdk
   snap_start {
     apply_on ="PublishedVersions"
   }

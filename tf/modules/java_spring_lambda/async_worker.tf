@@ -33,13 +33,13 @@ resource "aws_lambda_event_source_mapping" "trigger_worker_from_sqs" {
 resource "aws_lambda_function" "async_worker" {
   function_name = local.worker_name
   role          = aws_iam_role.jbs_lambda_role.arn
-  handler       = var.lambda_entrypoint
+  handler       = "org.example.FunctionConfiguration::handleRequest" # var.lambda_entrypoint
   runtime       = "java21"
   filename      = "${path.module}/lambda_shim/main.zip"
 
   # Snapstart and Performance Tuning
   timeout     = "3"
-  memory_size = "128"
+  memory_size = "512" # Cheapest, not fastest, lower risks timeouts for aws sdk
   snap_start {
     apply_on ="PublishedVersions"
   }

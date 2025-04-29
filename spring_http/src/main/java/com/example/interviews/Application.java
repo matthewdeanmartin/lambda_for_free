@@ -13,9 +13,11 @@ import org.springframework.context.annotation.Import;
 @ComponentScan(basePackages = "com.example.interviews.controller")
 //@Import({ PingController.class, InterviewController.class, MessageController.class })
 // @Import(AwsConfig.class)
+@Import({WebSecurityConfig.class})
 public class Application {
 
     public static void main(String[] args) {
         SpringApplication.run(Application.class, args);
     }
+
 }

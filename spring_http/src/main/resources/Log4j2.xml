@@ -1,0 +1,14 @@
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="ConsoleAppender" target="SYSTEM_OUT">
+            <PatternLayout pattern="%-5p %c{1.}:%L - %m%n" />
+        </Console>
+    </Appenders>
+
+    <Loggers>
+        <Root level="DEBUG">
+            <AppenderRef ref="ConsoleAppender"/>
+        </Root>
+        <Logger name="software.amazon.awssdk" level="DEBUG" />
+    </Loggers>
+</Configuration>

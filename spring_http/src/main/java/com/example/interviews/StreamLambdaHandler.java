@@ -1,6 +1,10 @@
 package com.example.interviews;
 
 
+import com.amazonaws.serverless.proxy.internal.LambdaContainerHandler;
+import org.crac.Resource;
+import org.crac.Core;
+
 import com.amazonaws.serverless.exceptions.ContainerInitializationException;
 import com.amazonaws.serverless.proxy.model.AwsProxyRequest;
 import com.amazonaws.serverless.proxy.model.AwsProxyResponse;
@@ -15,11 +19,13 @@ import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 
 
-public class StreamLambdaHandler implements RequestStreamHandler {
+public class StreamLambdaHandler implements RequestStreamHandler, Resource {
     private static SpringBootLambdaContainerHandler<AwsProxyRequest, AwsProxyResponse> handler;
     static {
         try {
             handler = SpringBootLambdaContainerHandler.getAwsProxyHandler(Application.class);
+            LambdaContainerHandler.getContainerConfig().addBinaryContentTypes("application/javascript");
+            LambdaContainerHandler.getContainerConfig().addBinaryContentTypes("text/css");
         } catch (ContainerInitializationException e) {
             // if we fail here. We re-throw the exception to force another cold start
             e.printStackTrace();
@@ -48,5 +54,15 @@ public class StreamLambdaHandler implements RequestStreamHandler {
         InputStream newInputStream = new ByteArrayInputStream(inputBytes);
 
         handler.proxyStream(newInputStream, outputStream, context);
+    }
+
+    @Override
+    public void beforeCheckpoint(org.crac.Context<? extends Resource> context) throws Exception {
+        System.out.println("Before Checkpoint");
+    }
+
+    @Override
+    public void afterRestore(org.crac.Context<? extends Resource> context) throws Exception {
+        System.out.println("After Restore");
     }
 }

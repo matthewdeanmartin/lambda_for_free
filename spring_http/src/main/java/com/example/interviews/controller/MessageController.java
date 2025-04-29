@@ -5,7 +5,10 @@ import com.example.interviews.models.SendRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import software.amazon.awssdk.auth.credentials.ContainerCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
+import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
+import software.amazon.awssdk.core.SdkSystemSetting;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.*;
@@ -34,26 +37,48 @@ public class MessageController {
             @Value("${app.dynamo.table-name}") String tableName,
             @Value("${aws.region:us-east-2}") String region
     ) {
+        System.out.println("MessageController constructor running");
         this.region = region;
         this.queueUrl = queueUrl;
         this.tableName = tableName;
     }
 
     private void create_clients() {
-        this.sqs = SqsClient.builder()
-                .region(Region.of(this.region))
-                // .credentialsProvider(DefaultCredentialsProvider.create())
-                .build();
+        System.out.println("Creating Sqs Client");
+//        this.sqs = SqsClient.builder()
+//                .region(Region.of(this.region))
+//                // .credentialsProvider(DefaultCredentialsProvider.create())
+//                .build();
 
-        this.dynamo = DynamoDbClient.builder()
+        this.sqs = SqsClient.builder()
+//                .credentialsProvider(SdkSystemSetting.AWS_CONTAINER_CREDENTIALS_FULL_URI
+//                        .getStringValue()
+//                        .isPresent()
+//                        ? ContainerCredentialsProvider.builder().build()
+//                        : EnvironmentVariableCredentialsProvider.create())
                 .region(Region.of(this.region))
-                // .credentialsProvider(DefaultCredentialsProvider.create())
                 .build();
+        System.out.println("Creating DynmoDB Client");
+//        this.dynamo = DynamoDbClient.builder()
+//                .region(Region.of(this.region))
+//                // .credentialsProvider(DefaultCredentialsProvider.create())
+//                .build();
+        // SdkSystemSetting.AWS_REGION.getStringValueOrThrow()
+        this.dynamo = DynamoDbClient.builder()
+//                .credentialsProvider(SdkSystemSetting.AWS_CONTAINER_CREDENTIALS_FULL_URI
+//                        .getStringValue()
+//                        .isPresent()
+//                        ? ContainerCredentialsProvider.builder().build()
+//                        : EnvironmentVariableCredentialsProvider.create())
+                .region(Region.of(this.region))
+                .build();
+        System.out.println("Done creating Clients");
     }
 
     /** 1) Send a message */
     @PostMapping
     public ResponseEntity<Void> send(@RequestBody SendRequest req) {
+        System.out.println("Sending request: " + req);
         create_clients();
         String messageId = UUID.randomUUID().toString();
         long now = Instant.now().toEpochMilli();
@@ -99,6 +124,7 @@ public class MessageController {
             @PathVariable String id,
             @RequestHeader("X-Owner-Id") String ownerId
     ) {
+        System.out.println("Retrieving status: " + id);
         create_clients();
         QueryResponse qr = dynamo.query(QueryRequest.builder()
                 .tableName(tableName)
@@ -164,6 +190,7 @@ public class MessageController {
             @PathVariable String id,
             @RequestHeader("X-Owner-Id") String ownerId
     ) {
+        System.out.println("Cancelling request: " + id);
         create_clients();
         Map<String, AttributeValue> reqItem = dynamo.getItem(GetItemRequest.builder()
                         .tableName(tableName)
@@ -199,6 +226,7 @@ public class MessageController {
     public ResponseEntity<List<PendingRequest>> listInflight(
             @RequestHeader("X-Owner-Id") String ownerId
     ) {
+        System.out.println("ListInflight request: " + ownerId);
         create_clients();
         ScanResponse sr = dynamo.scan(ScanRequest.builder()
                 .tableName(tableName)
@@ -221,6 +249,7 @@ public class MessageController {
 
     /** Helper to batch‐delete the REQUEST, RESULT, CANCELLED items by MessageId */
     private void batchDelete(String messageId, List<String> types) {
+        System.out.println("BatchDelete request: " + messageId);
         create_clients();
         List<WriteRequest> deletes = types.stream()
                 .map(type -> Map.<String, AttributeValue>of(
