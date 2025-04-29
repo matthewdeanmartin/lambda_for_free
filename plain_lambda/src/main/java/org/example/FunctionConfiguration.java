@@ -1,16 +1,14 @@
 package org.example;
 
 import com.amazonaws.services.lambda.runtime.Context;
-import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.LambdaLogger;
-
+import com.amazonaws.services.lambda.runtime.RequestHandler;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.AttributeValue;
 import software.amazon.awssdk.services.dynamodb.model.PutItemRequest;
-
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.time.Instant;
 import java.util.List;
@@ -34,27 +32,52 @@ public class FunctionConfiguration implements RequestHandler<Map<String, Object>
         LambdaLogger logger = context.getLogger();
         logger.log("Received event: " + event);
 
-        try {
-            // Detect if this is an SQS event
-            if (event.containsKey("Records")) {
-                List<Map<String, Object>> records = (List<Map<String, Object>>) event.get("Records");
 
-                for (Map<String, Object> record : records) {
-                    Map<String, Object> bodyMap = parseBody((String) record.get("body"));
-                    SendRequest sendRequest = objectMapper.convertValue(bodyMap, SendRequest.class);
-                    processRequest(sendRequest, logger);
+        if (event.containsKey("Records")) {
+            List<Map<String, Object>> records = (List<Map<String, Object>>) event.get("Records");
+
+            for (Map<String, Object> record : records) {
+                String messageId = record.get("messageId").toString();
+                Map<String, Object> messageAttributes = (Map<String, Object>) record.get("messageAttributes");
+
+
+                String ownerId = null;
+                String payload = null;
+
+                if (messageAttributes != null) {
+                    Map<String, Object> ownerAttr = (Map<String, Object>) messageAttributes.get("OwnerId");
+                    Map<String, Object> payloadAttr = (Map<String, Object>) messageAttributes.get("Payload");
+
+                    if (ownerAttr != null) {
+                        ownerId = (String) ownerAttr.get("stringValue");
+                    }
+                    if (payloadAttr != null) {
+                        payload = (String) payloadAttr.get("stringValue");
+                    }
                 }
-                return "Processed " + records.size() + " SQS messages.";
-            } else {
-                // Direct API call
-                SendRequest sendRequest = objectMapper.convertValue(event, SendRequest.class);
-                String response = processRequest(sendRequest, logger);
-                return response;
+
+                if (ownerId == null || payload == null) {
+                    logger.log("Missing OwnerId or Payload in messageAttributes");
+                    throw new IllegalArgumentException("Missing OwnerId or Payload");
+                }
+
+                // Build SendRequest manually
+                SendRequest sendRequest = new SendRequest();
+                sendRequest.setOwnerId(ownerId);
+                sendRequest.setPayload(payload);
+                sendRequest.setMessageId(messageId);
+
+                processRequest(sendRequest, logger);
             }
-        } catch (Exception e) {
-            logger.log("Error handling request: " + e.getMessage());
-            throw new RuntimeException(e);
+
+            return "Processed " + records.size() + " SQS messages.";
+        } else {
+            // Direct API call
+            SendRequest sendRequest = objectMapper.convertValue(event, SendRequest.class);
+            String response = processRequest(sendRequest, logger);
+            return response;
         }
+
     }
 
     private String processRequest(SendRequest request, LambdaLogger logger) {
@@ -69,12 +92,12 @@ public class FunctionConfiguration implements RequestHandler<Map<String, Object>
         }
 
         double result = Math.log(inputValue);
-        String messageId = UUID.randomUUID().toString();
         long now = Instant.now().toEpochMilli();
 
         Map<String, AttributeValue> resultItem = Map.of(
-                "MessageId", AttributeValue.builder().s(messageId).build(),
+                "MessageId", AttributeValue.builder().s(request.getMessageId()).build(),
                 "RecordType", AttributeValue.builder().s("RESULT").build(),
+                "ownerId", AttributeValue.builder().s(request.getOwnerId()).build(),
                 "payload", AttributeValue.builder().s(String.valueOf(result)).build(),
                 "completedAt", AttributeValue.builder().n(Long.toString(now)).build()
         );
@@ -89,18 +112,28 @@ public class FunctionConfiguration implements RequestHandler<Map<String, Object>
         return response;
     }
 
-    private Map<String, Object> parseBody(String body) throws Exception {
-        JsonNode jsonNode = objectMapper.readTree(body);
-        return objectMapper.convertValue(jsonNode, Map.class);
-    }
+//    private Map<String, Object> parseBody(String body) throws Exception {
+//        JsonNode jsonNode = objectMapper.readTree(body);
+//        return objectMapper.convertValue(jsonNode, Map.class);
+//    }
 
     // --- Request Payload Class ---
     public static class SendRequest {
+        private String messageId;
         private String payload;
-
+        private String ownerId;
         public SendRequest() {
             // Needed for Jackson deserialization
         }
+        public String getMessageId() {
+            return messageId;
+        }
+
+        public void setMessageId(String messageId) {
+            this.messageId = messageId;
+        }
+
+
 
         public String getPayload() {
             return payload;
@@ -110,9 +143,17 @@ public class FunctionConfiguration implements RequestHandler<Map<String, Object>
             this.payload = payload;
         }
 
+        public String getOwnerId() {
+            return ownerId;
+        }
+
+        public void setOwnerId(String ownerId) {
+            this.ownerId = ownerId;
+        }
+
         @Override
         public String toString() {
-            return "SendRequest{payload='" + payload + "'}";
+            return "SendRequest{payload='" + payload + "', ownerId='" + ownerId + "'}";
         }
     }
 }

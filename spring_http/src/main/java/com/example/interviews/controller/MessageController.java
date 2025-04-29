@@ -3,21 +3,23 @@ package com.example.interviews.controller;
 import com.example.interviews.models.PendingRequest;
 import com.example.interviews.models.SendRequest;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import software.amazon.awssdk.auth.credentials.ContainerCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.DefaultCredentialsProvider;
-import software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider;
-import software.amazon.awssdk.core.SdkSystemSetting;
 import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.dynamodb.DynamoDbClient;
 import software.amazon.awssdk.services.dynamodb.model.*;
 import software.amazon.awssdk.services.sqs.SqsClient;
-import software.amazon.awssdk.services.sqs.model.*;
+import software.amazon.awssdk.services.sqs.model.MessageAttributeValue;
+import software.amazon.awssdk.services.sqs.model.SendMessageRequest;
+import software.amazon.awssdk.services.sqs.model.SendMessageResponse;
 
 import java.net.URI;
 import java.time.Instant;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @RestController
@@ -75,28 +77,29 @@ public class MessageController {
         System.out.println("Done creating Clients");
     }
 
-    /** 1) Send a message */
+    /**
+     * 1) Send a message
+     */
     @PostMapping
     public ResponseEntity<Void> send(@RequestBody SendRequest req) {
+        if (!req.ownerId().equals("matt")) {
+            System.out.println("Wrong owner: " + req.ownerId());
+            System.out.println(req);
+
+            URI location = URI.create("/nowhere/");
+            return ResponseEntity
+                    .accepted()
+                    .location(location)
+                    .build();
+        }
+
         System.out.println("Sending request: " + req);
         create_clients();
         String messageId = UUID.randomUUID().toString();
         long now = Instant.now().toEpochMilli();
 
-        Map<String, AttributeValue> requestItem = Map.of(
-                "MessageId",  AttributeValue.builder().s(messageId).build(),
-                "RecordType", AttributeValue.builder().s("REQUEST").build(),
-                "ownerId",    AttributeValue.builder().s(req.ownerId()).build(),
-                "payload",    AttributeValue.builder().s(req.payload()).build(),
-                "createdAt",  AttributeValue.builder().n(Long.toString(now)).build()
-        );
 
-        dynamo.putItem(PutItemRequest.builder()
-                .tableName(tableName)
-                .item(requestItem)
-                .build());
-
-        sqs.sendMessage(SendMessageRequest.builder()
+        SendMessageResponse response = sqs.sendMessage(SendMessageRequest.builder()
                 .queueUrl(queueUrl)
                 .messageBody(req.payload())
                 .messageAttributes(Map.of(
@@ -107,25 +110,46 @@ public class MessageController {
                         "OwnerId", MessageAttributeValue.builder()
                                 .dataType("String")
                                 .stringValue(req.ownerId())
+                                .build(),
+                        "Payload", MessageAttributeValue.builder()
+                                .dataType("String")
+                                .stringValue(req.payload())
                                 .build()
                 ))
                 .build());
 
-        URI location = URI.create("/messages/" + messageId);
+        Map<String, AttributeValue> requestItem = Map.of(
+                "MessageId", AttributeValue.builder().s(response.messageId()).build(),
+                "RecordType", AttributeValue.builder().s("REQUEST").build(),
+                "ownerId", AttributeValue.builder().s(req.ownerId()).build(),
+                "payload", AttributeValue.builder().s(req.payload()).build(),
+                "createdAt", AttributeValue.builder().n(Long.toString(now)).build()
+        );
+
+
+        dynamo.putItem(PutItemRequest.builder()
+                .tableName(tableName)
+                .item(requestItem)
+                .build());
+
+        URI location = URI.create("/messages/" + response.messageId());
         return ResponseEntity
                 .accepted()
                 .location(location)
                 .build();
     }
 
-    /** 2) Poll status (or get final result) */
+    /**
+     * 2) Poll status (or get final result)
+     */
     @GetMapping("/{id}")
     public ResponseEntity<Object> status(
             @PathVariable String id,
-            @RequestHeader("X-Owner-Id") String ownerId
+            @RequestHeader(value = "X-Owner-Id", required = true) String ownerId
     ) {
         System.out.println("Retrieving status: " + id);
         create_clients();
+        System.out.println("About to do query");
         QueryResponse qr = dynamo.query(QueryRequest.builder()
                 .tableName(tableName)
                 .keyConditionExpression("MessageId = :mid")
@@ -134,15 +158,22 @@ public class MessageController {
                 ))
                 .build());
 
+        System.out.println("About to iterate and find first");
         Map<String, AttributeValue> requestItem = qr.items().stream()
                 .filter(item -> "REQUEST".equals(item.get("RecordType").s()))
                 .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("No such request"));
 
-        if (!ownerId.equals(requestItem.get("ownerId").s())) {
-            return ResponseEntity.status(404).build();
+        System.out.println("Time to check owner Id");
+        System.out.println("Incoming header ownerId=" + ownerId);
+        System.out.println("DynamoDB item ownerId=" + requestItem.get("ownerId"));
+
+        AttributeValue stored = requestItem.get("ownerId");
+        if (stored == null || !ownerId.equals(stored.s())) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
         }
 
+        System.out.println("Time to check if cancelled");
         boolean isCancelled = qr.items().stream()
                 .anyMatch(item -> "CANCELLED".equals(item.get("RecordType").s()));
         if (isCancelled) {
@@ -157,6 +188,8 @@ public class MessageController {
         Optional<Map<String, AttributeValue>> resultOpt = qr.items().stream()
                 .filter(item -> "RESULT".equals(item.get("RecordType").s()))
                 .findFirst();
+
+        System.out.println("Time to check if empty");
         if (resultOpt.isEmpty()) {
             Map<String, String> body = Map.of("status", "PENDING");
             return ResponseEntity
@@ -165,13 +198,33 @@ public class MessageController {
                     .body(body);
         }
 
+        System.out.println("Wasn't empty, time to return result");
         Map<String, AttributeValue> resultItem = resultOpt.get();
+
+        System.out.println("resultItem = " + resultItem);
+
         String error = resultItem.containsKey("error") ? resultItem.get("error").s() : null;
-        Map<String, Object> resultData = Map.of(
-                "resultData", resultItem.getOrDefault("resultData", AttributeValue.builder().nul(true).build()).s(),
-                "completedAt", Long.parseLong(resultItem.get("completedAt").n())
+
+        // safely extract the "resultData" string (or null if missing)
+        String resultDataValue = Optional.ofNullable(resultItem.get("payload"))
+                .map(AttributeValue::s)
+                .orElse(null);
+
+        // safely extract the "completedAt" number (or throw if missing)
+        String completedAtStr = Optional.ofNullable(resultItem.get("completedAt"))
+                .map(AttributeValue::n)
+                .orElseThrow(() -> new IllegalStateException("Missing completedAt in DynamoDB RESULT record"));
+        long completedAt = Long.parseLong(completedAtStr);
+
+        // build a map without ever passing in null values to Map.of
+        Map<String,Object> resultData = Map.of(
+                "resultData", resultDataValue != null ? resultDataValue : "",
+                "completedAt", completedAt
         );
 
+
+
+        System.out.println("Time to delete it all");
         batchDelete(id, List.of("REQUEST", "RESULT"));
 
         Object responseBody = (error != null)
@@ -184,7 +237,9 @@ public class MessageController {
                 .body(responseBody);
     }
 
-    /** 3) Cancel a pending request */
+    /**
+     * 3) Cancel a pending request
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> cancel(
             @PathVariable String id,
@@ -207,9 +262,9 @@ public class MessageController {
 
         long now = Instant.now().toEpochMilli();
         Map<String, AttributeValue> cancelItem = Map.of(
-                "MessageId",   AttributeValue.builder().s(id).build(),
-                "RecordType",  AttributeValue.builder().s("CANCELLED").build(),
-                "ownerId",     AttributeValue.builder().s(ownerId).build(),
+                "MessageId", AttributeValue.builder().s(id).build(),
+                "RecordType", AttributeValue.builder().s("CANCELLED").build(),
+                "ownerId", AttributeValue.builder().s(ownerId).build(),
                 "cancelledAt", AttributeValue.builder().n(Long.toString(now)).build()
         );
 
@@ -221,7 +276,9 @@ public class MessageController {
         return ResponseEntity.noContent().build();
     }
 
-    /** 4) List in-flight (pending) requests for this owner */
+    /**
+     * 4) List in-flight (pending) requests for this owner
+     */
     @GetMapping
     public ResponseEntity<List<PendingRequest>> listInflight(
             @RequestHeader("X-Owner-Id") String ownerId
@@ -247,7 +304,9 @@ public class MessageController {
         return ResponseEntity.ok(pending);
     }
 
-    /** Helper to batch‐delete the REQUEST, RESULT, CANCELLED items by MessageId */
+    /**
+     * Helper to batch‐delete the REQUEST, RESULT, CANCELLED items by MessageId
+     */
     private void batchDelete(String messageId, List<String> types) {
         System.out.println("BatchDelete request: " + messageId);
         create_clients();
@@ -266,9 +325,13 @@ public class MessageController {
                 .build());
     }
 
-    /** Simple 404 Exception */
+    /**
+     * Simple 404 Exception
+     */
     @ResponseStatus(code = org.springframework.http.HttpStatus.NOT_FOUND)
     public static class ResourceNotFoundException extends RuntimeException {
-        public ResourceNotFoundException(String msg) { super(msg); }
+        public ResourceNotFoundException(String msg) {
+            super(msg);
+        }
     }
 }
