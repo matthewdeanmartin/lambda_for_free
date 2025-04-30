@@ -1,45 +1,14 @@
-# App
+# Plain Lambda Worker
 
-This project contains an AWS Lambda maven application with [AWS Java SDK 2.x](https://github.com/aws/aws-sdk-java-v2) dependencies.
+This is a simple worker that consumes an SQS message or a direct message and calculates a logarithm.
 
-## Prerequisites
-- Java 1.8+
-- Apache Maven
-- [AWS SAM CLI](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
-- Docker
+If it is an async request, it stores the result in a DynamoDB table.
 
-## Development
+There are many signatures that a lambda can implement, this one uses 
 
-The generated function handler class just returns the input. The configured AWS Java SDK client is created in `DependencyFactory` class and you can 
-add the code to interact with the SDK client based on your use case.
+`public String handleRequest(Map<String, Object> event, Context context)`
 
-#### Building the project
-```
-mvn clean install
-```
-
-#### Testing it locally
-```
-sam local invoke
-```
-
-#### Adding more SDK clients
-To add more service clients, you need to add the specific services modules in `pom.xml` and create the clients in `DependencyFactory` following the same 
-pattern as ${serviceClientVariable}Client.
-
-## Deployment
-
-The generated project contains a default [SAM template](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/sam-resource-function.html) file `template.yaml` where you can 
-configure different properties of your lambda function such as memory size and timeout. You might also need to add specific policies to the lambda function
-so that it can access other AWS resources.
-
-To deploy the application, you can run the following command:
-
-```
-sam deploy --guided
-```
-
-See [Deploying Serverless Applications](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-deploying.html) for more info.
-
-
-
+## Challenges
+- The SQS message body came through as a peculiar json format, not the one I sent.
+- Some sort of retry logic was going on filling the logs with extra calls
+- This has no elements of Spring Web at all. No Spring ORMs, nothing.
