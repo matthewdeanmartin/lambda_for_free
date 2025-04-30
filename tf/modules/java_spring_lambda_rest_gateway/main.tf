@@ -62,19 +62,21 @@ resource "aws_api_gateway_rest_api" "rest" {
 resource "aws_api_gateway_resource" "sync_proxy" {
   rest_api_id = aws_api_gateway_rest_api.rest.id
   parent_id   = aws_api_gateway_rest_api.rest.root_resource_id
-  path_part   = "sync"
+  # path_part   = "sync"
+  path_part = "{proxy+}"
 }
 
-resource "aws_api_gateway_resource" "sync_proxy_plus" {
-  rest_api_id = aws_api_gateway_rest_api.rest.id
-  parent_id   = aws_api_gateway_resource.sync_proxy.id
-  path_part   = "{proxy+}"
-}
+# resource "aws_api_gateway_resource" "sync_proxy_plus" {
+#   rest_api_id = aws_api_gateway_rest_api.rest.id
+#   parent_id   = aws_api_gateway_resource.sync_proxy.id
+#   path_part   = "{proxy+}"
+# }
 
 
 resource "aws_api_gateway_method" "proxy_method" {
   rest_api_id   = aws_api_gateway_rest_api.rest.id
-  resource_id   = aws_api_gateway_resource.sync_proxy_plus.id
+  # resource_id   = aws_api_gateway_resource.sync_proxy_plus.id
+  resource_id   = aws_api_gateway_resource.sync_proxy.id
   http_method   = "ANY"
   authorization = "NONE"
   request_parameters = {
@@ -84,7 +86,8 @@ resource "aws_api_gateway_method" "proxy_method" {
 
 resource "aws_api_gateway_integration" "proxy_integration" {
   rest_api_id             = aws_api_gateway_rest_api.rest.id
-  resource_id             = aws_api_gateway_resource.sync_proxy_plus.id
+  # resource_id             = aws_api_gateway_resource.sync_proxy_plus.id
+  resource_id             = aws_api_gateway_resource.sync_proxy.id
   http_method             = aws_api_gateway_method.proxy_method.http_method
   integration_http_method = "POST"
   type                    = "AWS_PROXY"
@@ -179,12 +182,20 @@ resource "aws_api_gateway_method_settings" "all" {
   }
 }
 
+# resource "aws_lambda_permission" "allow_apigw" {
+#   statement_id  = "AllowAPIGatewayInvoke"
+#   action        = "lambda:InvokeFunction"
+#   function_name = aws_lambda_function.compute.function_name
+#   principal     = "apigateway.amazonaws.com"
+#   source_arn    = "${aws_api_gateway_rest_api.rest.execution_arn}/*/*/sync/*"
+# }
+
 resource "aws_lambda_permission" "allow_apigw" {
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.compute.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_api_gateway_rest_api.rest.execution_arn}/*/*/sync/*"
+  source_arn    = "${aws_api_gateway_rest_api.rest.execution_arn}/*/*/*"
 }
 
 resource "aws_cloudwatch_log_group" "lambda_log" {

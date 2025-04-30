@@ -2,6 +2,7 @@ package com.example.interviews;
 
 
 import com.amazonaws.serverless.exceptions.ContainerInitializationException;
+import com.amazonaws.serverless.proxy.internal.LambdaContainerHandler;
 import com.amazonaws.serverless.proxy.model.AwsProxyRequest;
 import com.amazonaws.serverless.proxy.model.AwsProxyResponse;
 import com.amazonaws.serverless.proxy.spring.SpringBootLambdaContainerHandler;
@@ -24,6 +25,9 @@ public class StreamLambdaHandler implements RequestStreamHandler {
     static {
         try {
             handler = SpringBootLambdaContainerHandler.getAwsProxyHandler(Application.class);
+            // AGW-REST-style doesn't need this?
+//            LambdaContainerHandler.getContainerConfig().addBinaryContentTypes("application/javascript");
+//            LambdaContainerHandler.getContainerConfig().addBinaryContentTypes("text/css");
         } catch (ContainerInitializationException e) {
             // if we fail here. We re-throw the exception to force another cold start
             e.printStackTrace();
@@ -61,7 +65,7 @@ public class StreamLambdaHandler implements RequestStreamHandler {
 
         // Log the original input
         String inputString = new String(inputBytes, StandardCharsets.UTF_8);
-        context.getLogger().log("Original SQS input: " + inputString);
+        context.getLogger().log("Original input: " + inputString);
 
         // Parse JSON and extract body
         // Parse JSON

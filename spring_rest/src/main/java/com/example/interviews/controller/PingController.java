@@ -10,7 +10,7 @@ import java.util.*;
 
 @RestController
 @EnableWebMvc
-@RequestMapping({"/sync", "/async"})
+//@RequestMapping({"/sync", "/async", "/"})
 public class PingController {
     @RequestMapping(path = "/ping", method = RequestMethod.GET)
     public Map<String, String> ping() {

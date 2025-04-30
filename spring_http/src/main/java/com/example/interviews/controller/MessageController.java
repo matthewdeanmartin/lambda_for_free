@@ -82,16 +82,16 @@ public class MessageController {
      */
     @PostMapping
     public ResponseEntity<Void> send(@RequestBody SendRequest req) {
-        if (!req.ownerId().equals("matt")) {
-            System.out.println("Wrong owner: " + req.ownerId());
-            System.out.println(req);
-
-            URI location = URI.create("/nowhere/");
-            return ResponseEntity
-                    .accepted()
-                    .location(location)
-                    .build();
-        }
+//        if (!req.ownerId().equals("matt")) {
+//            System.out.println("Wrong owner: " + req.ownerId());
+//            System.out.println(req);
+//
+//            URI location = URI.create("/nowhere/");
+//            return ResponseEntity
+//                    .accepted()
+//                    .location(location)
+//                    .build();
+//        }
 
         System.out.println("Sending request: " + req);
         create_clients();
