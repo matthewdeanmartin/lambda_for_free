@@ -1,5 +1,10 @@
 # lambda_for_free
+Two goals:
+- Implement serverless patterns
+- Figure out how to 
+
 The goal is to demo multiple design and architectural patterns that use AWS lambdas and API Gateway.
+
 
 ## Patterns Done so far:
 - Web server with serverside rendering in lambda (API Gateway HTTP-style +  Spring Boot in Lambda)

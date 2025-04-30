@@ -2,6 +2,10 @@ output "api_gateway_endpoint" {
   value = aws_apigatewayv2_api.proxy.api_endpoint
 }
 
+output "lambda_function_url" {
+  value = aws_lambda_function_url.test_live.function_url
+}
+
 ###############################################################################
 # Outputs
 ###############################################################################

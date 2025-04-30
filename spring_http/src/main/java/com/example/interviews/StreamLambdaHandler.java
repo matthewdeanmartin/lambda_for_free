@@ -2,6 +2,7 @@ package com.example.interviews;
 
 
 import com.amazonaws.serverless.proxy.internal.LambdaContainerHandler;
+import com.amazonaws.serverless.proxy.model.HttpApiV2ProxyRequest;
 import org.crac.Resource;
 import org.crac.Core;
 
@@ -20,10 +21,13 @@ import java.nio.charset.StandardCharsets;
 
 
 public class StreamLambdaHandler implements RequestStreamHandler, Resource {
-    private static SpringBootLambdaContainerHandler<AwsProxyRequest, AwsProxyResponse> handler;
+    private static SpringBootLambdaContainerHandler<HttpApiV2ProxyRequest, AwsProxyResponse> handler;
     static {
         try {
-            handler = SpringBootLambdaContainerHandler.getAwsProxyHandler(Application.class);
+            // Payload v1
+            // handler = SpringBootLambdaContainerHandler.getAwsProxyHandler(Application.class);
+            // getHttpApiV2ProxyHandler
+            handler = SpringBootLambdaContainerHandler.getHttpApiV2ProxyHandler(Application.class);
             LambdaContainerHandler.getContainerConfig().addBinaryContentTypes("application/javascript");
             LambdaContainerHandler.getContainerConfig().addBinaryContentTypes("text/css");
         } catch (ContainerInitializationException e) {

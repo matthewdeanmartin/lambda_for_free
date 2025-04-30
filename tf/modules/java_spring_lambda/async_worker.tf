@@ -25,9 +25,11 @@ resource "aws_lambda_event_source_mapping" "trigger_worker_from_sqs" {
   function_name     = aws_lambda_function.async_worker.function_name
   enabled           = true
 
-  # tune as you like:
+  # Batch size 1 good for debugging, but increase to save costs at the risk of latency
   batch_size                        = 1
   maximum_batching_window_in_seconds = 30
+  # 1 retry is good for debugging. 2 or 3 is good if you know that it succeeds 99% of the time and 1% of the time it fails but succeeds on retry.
+  # maximum_retry_attempts = "1" # Not set here?
 }
 
 resource "aws_lambda_function" "async_worker" {
@@ -39,9 +41,11 @@ resource "aws_lambda_function" "async_worker" {
 
   # Snapstart and Performance Tuning
   timeout     = "3"
-  memory_size = "512" # Cheapest, not fastest, lower risks timeouts for aws sdk
+  memory_size = "128" # Cheapest
+  architectures = ["arm64"] # Cheaper
   snap_start {
     apply_on ="PublishedVersions"
   }
+
   publish = true
 }

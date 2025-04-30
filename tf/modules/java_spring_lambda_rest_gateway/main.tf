@@ -9,8 +9,9 @@ resource "aws_lambda_function" "compute" {
   runtime       = "java21"
   filename      = "${path.module}/lambda_shim/main.zip"
 
-  timeout     = 3
-  memory_size = 128
+  timeout     = "3"
+  memory_size = "128" # Cheapest
+  architectures = ["arm64"] # Cheaper
   snap_start {
     apply_on = "PublishedVersions"
   }
@@ -46,6 +47,8 @@ resource "aws_lambda_event_source_mapping" "sqs_to_lambda" {
   function_name    = aws_lambda_function.compute.arn
   batch_size       = 1              # or more, depending on your use case
   enabled          = true
+  # 1 for debugging, 2 or 3 for production
+  # maximum_retry_attempts = 1 # not set here?
 }
 
 resource "aws_api_gateway_rest_api" "rest" {

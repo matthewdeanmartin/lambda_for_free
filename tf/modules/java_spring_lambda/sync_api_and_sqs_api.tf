@@ -12,12 +12,32 @@ resource "aws_lambda_function" "web_api" {
 
   # Snapstart and Performance Tuning
   timeout     = "3"
-  memory_size = "512" # Cheapest, not fastest, lower risks timeouts for aws sdk
+  memory_size = "256" # Cheapest (128 doesn't run at all!)
+  architectures = ["arm64"] # Cheaper
   snap_start {
     apply_on ="PublishedVersions"
   }
   publish = true
+
+
 }
+
+
+# Even more lightweight than HTTP API Gateway
+resource "aws_lambda_function_url" "test_live" {
+  function_name      = aws_lambda_function.web_api.function_name
+  authorization_type = "NONE"
+
+  cors {
+    allow_credentials = true
+    allow_methods     = ["*"]
+    allow_origins = var.cors_origin
+    allow_headers = ["content-type","x-amz-date","authorization","x-api-key","x-amz-security-token", "date", "keep-alive"]
+    expose_headers    = ["keep-alive", "date"]
+    max_age           = 86400
+  }
+}
+
 
 # endpoint
 resource "aws_apigatewayv2_api" "proxy" {
@@ -41,8 +61,9 @@ resource "aws_apigatewayv2_integration" "proxy" {
   integration_uri      = aws_lambda_function.web_api.invoke_arn
   passthrough_behavior = "WHEN_NO_MATCH"
 
-  # java serverless container doesn't support v2?
-  payload_format_version = "1.0"
+  # This is compatible with getHttpApiV2ProxyHandler
+  # and it is compatible with Function URLs.
+  payload_format_version = "2.0"
 }
 
 
