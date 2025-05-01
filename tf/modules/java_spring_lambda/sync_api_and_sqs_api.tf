@@ -11,8 +11,8 @@ resource "aws_lambda_function" "web_api" {
   filename      = "${path.module}/lambda_shim/main.zip"
 
   # Snapstart and Performance Tuning
-  timeout     = "3"
-  memory_size = "256" # Cheapest (128 doesn't run at all!)
+  timeout     = "6"
+  memory_size = "1024" # Cheapest (128 doesn't run at all!)
   architectures = ["arm64"] # Cheaper
   snap_start {
     apply_on ="PublishedVersions"

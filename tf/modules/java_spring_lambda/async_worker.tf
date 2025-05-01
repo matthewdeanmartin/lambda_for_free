@@ -40,8 +40,8 @@ resource "aws_lambda_function" "async_worker" {
   filename      = "${path.module}/lambda_shim/main.zip"
 
   # Snapstart and Performance Tuning
-  timeout     = "3"
-  memory_size = "128" # Cheapest
+  timeout     = "6"
+  memory_size = "1024" # Cheapest
   architectures = ["arm64"] # Cheaper
   snap_start {
     apply_on ="PublishedVersions"

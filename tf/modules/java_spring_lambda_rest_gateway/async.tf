@@ -143,6 +143,7 @@ resource "aws_api_gateway_method_response" "async_400" {
   http_method = aws_api_gateway_method.async_proxy_method.http_method
   status_code = "400"
 
+
   # response_models = {
   #   "application/json" = "Empty"
   # }

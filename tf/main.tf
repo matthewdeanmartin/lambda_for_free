@@ -7,8 +7,9 @@ resource "random_string" "random" {
 }
 
 locals {
-  react_bucket_name   = "lambda-for-free-react-${random_string.random.result}"
-  angular_bucket_name = "lambda-for-free-angular-${random_string.random.result}"
+  react_bucket_name            = "lambda-for-free-react-${random_string.random.result}"
+  angular_bucket_name          = "lambda-for-free-angular-${random_string.random.result}"
+  swagger_for_rest_bucket_name = "swagger-for-rest-gateway-${random_string.random.result}"
 }
 
 module "react_website" {
@@ -21,6 +22,11 @@ module "angular_website" {
   bucket_name = local.angular_bucket_name
 }
 
+module "swagger_for_rest_website" {
+  source      = "./modules/static_website"
+  bucket_name = local.swagger_for_rest_bucket_name
+}
+
 
 module "main_lambda" {
   source = "./modules/java_spring_lambda"
@@ -30,6 +36,7 @@ module "main_lambda" {
   cors_origin = [
     "http://${module.react_website.bucket_domain_name}",
     "http://${module.angular_website.bucket_domain_name}",
+    "http://${module.swagger_for_rest_website.bucket_domain_name}",
     "https://hlg0m0h7e6.execute-api.us-east-2.amazonaws.com" # API Gateway URL
   ]
 }
@@ -42,7 +49,8 @@ module "main_rest_gateway" {
   lambda_entrypoint = "com.example.interviews.StreamLambdaHandler::handleRequest"
   cors_origin = [
     "http://${module.react_website.bucket_domain_name}",
-    "http://${module.angular_website.bucket_domain_name}"
+    "http://${module.angular_website.bucket_domain_name}",
+    "http://${module.swagger_for_rest_website.bucket_domain_name}",
   ]
 }
 

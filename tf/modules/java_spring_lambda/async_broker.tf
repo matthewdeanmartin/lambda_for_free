@@ -9,7 +9,26 @@ resource "aws_sqs_queue" "broker" {
   tags = {
     Environment = var.environment
     Application = "message-broker"
+    Name = "Message Broker Queue"
   }
+
+  redrive_policy = jsonencode({
+    deadLetterTargetArn = aws_sqs_queue.deadletter_queue.arn,
+    maxReceiveCount     = 3
+  })
+}
+
+resource "aws_sqs_queue" "deadletter_queue" {
+  name                       = "${var.queue_name}-dlq"
+  visibility_timeout_seconds = 30
+  message_retention_seconds  = 345600   # 4 days
+
+  tags = {
+    Environment = var.environment
+    Application = "message-broker"
+    Name = "Dead Letter Queue for Message Broker"
+  }
+
 }
 
 ###############################################################################

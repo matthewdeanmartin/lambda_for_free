@@ -45,6 +45,8 @@ python = ">=3.13"
 # core
 python-dotenv = ">=1.0.1, <2"
 boto3 = ">=1.38.5"
+
+inquirer = ">=3.4.0"
 ## ui
 #rich = ">=13.7.0, <14"
 #inquirer = ">=3.2.3, <4"

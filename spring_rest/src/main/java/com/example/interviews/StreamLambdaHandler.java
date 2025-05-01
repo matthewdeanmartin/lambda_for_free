@@ -2,7 +2,6 @@ package com.example.interviews;
 
 
 import com.amazonaws.serverless.exceptions.ContainerInitializationException;
-import com.amazonaws.serverless.proxy.internal.LambdaContainerHandler;
 import com.amazonaws.serverless.proxy.model.AwsProxyRequest;
 import com.amazonaws.serverless.proxy.model.AwsProxyResponse;
 import com.amazonaws.serverless.proxy.spring.SpringBootLambdaContainerHandler;
@@ -26,7 +25,7 @@ public class StreamLambdaHandler implements RequestStreamHandler {
         try {
             handler = SpringBootLambdaContainerHandler.getAwsProxyHandler(Application.class);
             // AGW-REST-style doesn't need this?
-//            LambdaContainerHandler.getContainerConfig().addBinaryContentTypes("application/javascript");
+            // LambdaContainerHandler.getContainerConfig().addBinaryContentTypes("application/javascript");
 //            LambdaContainerHandler.getContainerConfig().addBinaryContentTypes("text/css");
         } catch (ContainerInitializationException e) {
             // if we fail here. We re-throw the exception to force another cold start

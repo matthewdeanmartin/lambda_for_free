@@ -129,7 +129,7 @@ mv .tmp.authorized_keys authorized_keys
     if conn_type == "tunnel":
         tunnel_domain = tunnel_domain or "localhost"
         tunnel_port = tunnel_port or "5432"
-        host_port = host_port or "5432"
+        host_port = host_port or "5555"
 
     if conn_type == "tunnel" and tunnel_domain and tunnel_port and host_port:
         subprocess.run(
