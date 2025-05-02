@@ -8,10 +8,8 @@ go_init:
     go mod init modules/test
 
 go_update:
-  pwd
-  ls *.mod
   go get -u github.com/gruntwork-io/terratest
-  cd test && go mod tidy -v -e
+  go mod tidy -v -e
 
 
 # Formatting and Validation
