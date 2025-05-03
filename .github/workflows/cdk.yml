@@ -9,7 +9,7 @@ on:
     paths:
       - 'cdk/**'
   workflow_dispatch:  # This enables manual runs from the GitHub Actions UI
-  
+
 jobs:
   build:
     runs-on: ubuntu-latest

@@ -9,7 +9,12 @@ export AWS_PROFILE := "default"
 # Define virtual environment and activation
 venv := ".venv"
 # activate := "source {{venv}}/bin/activate"
-activate := "source .venv/Scripts/activate"
+# activate := "call .venv\\Scripts\\activate.bat"
+activate := if os() == "windows" {
+  "source .venv/Scripts/activate"
+} else {
+  "source .venv/bin/activate"
+}
 
 # Default task: show help
 default:
