@@ -1,0 +1,31 @@
+[project]
+name = "infra"
+version = "0.1.0"
+description = "An AWS CDK app using uv for dependency management"
+authors = [{ name = "Matthew Dean Martin", email = "matthewdeanmartin@gmail.com" }]
+readme = "README.md"
+requires-python = ">=3.11"
+
+# must be in sync with globally installed cdk (an npm app!)
+dependencies = [
+    "aws-cdk-lib==2.190.0",
+    "constructs>=10.0.0,<11.0.0"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+      packages = ["infra"]
+
+
+[dependency-groups]
+dev = [
+  "pytest",
+    "ruff",
+    "pyclean"
+]
+
+[tool.uv]
+default-groups = ["dev"]

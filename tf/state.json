@@ -1,0 +1,83 @@
+{
+  "Comment": "Payment processing saga with compensation",
+  "StartAt": "WritePaymentInfo",
+  "States": {
+    "WritePaymentInfo": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-2:273354637257:function:WritePaymentInfo",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 3,
+          "MaxAttempts": 2,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "FailPayment"
+        }
+      ],
+      "Next": "CallPaymentProcessor"
+    },
+    "CallPaymentProcessor": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-2:273354637257:function:CallPaymentProcessor",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "UndoWritePaymentInfo"
+        }
+      ],
+      "Next": "NotifyInternalAccounting"
+    },
+    "NotifyInternalAccounting": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-2:273354637257:function:NotifyInternalAccounting",
+      "Retry": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "IntervalSeconds": 5,
+          "MaxAttempts": 3,
+          "BackoffRate": 2.0
+        }
+      ],
+      "Catch": [
+        {
+          "ErrorEquals": ["States.ALL"],
+          "Next": "UndoCallPaymentProcessor"
+        }
+      ],
+      "Next": "MarkPaymentSuccess"
+    },
+    "MarkPaymentSuccess": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-2:273354637257:function:MarkPaymentSuccess",
+      "End": true
+    },
+    "UndoCallPaymentProcessor": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-2:273354637257:function:UndoCallPaymentProcessor",
+      "Next": "UndoWritePaymentInfo"
+    },
+    "UndoWritePaymentInfo": {
+      "Type": "Task",
+      "Resource": "arn:aws:lambda:us-east-2:273354637257:function:UndoWritePaymentInfo",
+      "Next": "FailPayment"
+    },
+    "FailPayment": {
+      "Type": "Fail",
+      "Cause": "Payment process failed",
+      "Error": "SagaFailure"
+    }
+  }
+}

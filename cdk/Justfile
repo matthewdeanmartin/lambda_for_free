@@ -1,0 +1,66 @@
+# Justfile for AWS CDK project using uv, ruff, and pyclean
+
+# Use bash-compatible shell
+set shell := ["bash", "-cu"]
+
+# Default AWS profile for CDK commands
+export AWS_PROFILE := "default"
+
+# Define virtual environment and activation
+venv := ".venv"
+# activate := "source {{venv}}/bin/activate"
+activate := "source .venv/Scripts/activate"
+
+# Default task: show help
+default:
+    @echo "Available tasks:"
+    @just --summary
+
+# Initialize the project
+init:
+    uv venv
+    just install
+    just synth
+
+init_cdk:
+    npm install -g aws-cdk
+
+# Install dependencies from pyproject.toml
+install:
+    uv sync --all-groups
+
+# Synthesize CloudFormation templates
+synth:
+    {{activate}} && cdk synth
+
+# Deploy the stack
+deploy:
+    {{activate}} && cdk deploy --require-approval never
+
+# Destroy the stack
+destroy:
+    {{activate}} && cdk destroy
+
+# Run unit tests
+test:
+    {{activate}} && pytest tests/
+
+# Format code using ruff
+fmt:
+    {{activate}} && ruff format infra tests
+
+# Lint code using ruff
+lint:
+    {{activate}} && ruff check infra tests
+
+# Clean up build/test artifacts
+clean:
+    pyclean .
+    rm -rf cdk.out .venv .pytest_cache
+
+# Show Python environment info
+env-info:
+    {{activate}} && which python && python --version && uv pip list
+
+moto_deploy:
+    cdk deploy --profile_moto
