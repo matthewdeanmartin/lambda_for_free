@@ -1,0 +1,63 @@
+# Justfile for Java 21 Maven project using Maven Wrapper
+
+# Constants
+JAVA_VERSION := "21"
+
+# Ensure correct Java version is installed
+check-java:
+  @java -version
+  @java -version 2>&1 | grep '"{{JAVA_VERSION}}"' || (echo "Java {{JAVA_VERSION}} required." && exit 1)
+
+# Format code using Spotless (auto-fixes formatting)
+format:
+  ./mvnw spotless:apply
+
+# Run Checkstyle to enforce lint rules (configure in checkstyle.xml)
+lint:
+  ./mvnw checkstyle:check
+
+# Run only unit tests (default Maven test phase)
+test:
+  ./mvnw test
+
+# Run integration tests (assumes Failsafe plugin & `*IT.java` naming)
+integration-test:
+  ./mvnw failsafe:integration-test failsafe:verify
+
+# Run all tests: unit + integration
+all-tests:
+  just test
+  just integration-test
+
+# Clean target and build artifacts
+clean:
+  ./mvnw clean
+
+# Build the project JAR/WAR
+build:
+  just clean
+  ./mvnw package
+
+# Run formatting, linting, and tests
+check:
+  just format
+  just lint
+  just all-tests
+
+# Full CI flow: check + build + deploy
+ci:
+  just check
+  just build
+  just deploy
+
+# Deploy via custom script
+deploy:
+  ./deploy.sh
+
+# Optional: Run static analysis with SpotBugs
+spotbugs:
+  ./mvnw com.github.spotbugs:spotbugs-maven-plugin:spotbugs
+
+# Optional: Show dependency tree
+deps:
+  ./mvnw dependency:tree
