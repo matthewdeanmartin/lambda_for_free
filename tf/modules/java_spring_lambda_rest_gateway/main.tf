@@ -1,5 +1,7 @@
 locals {
   lambda_name = "${var.name}-compute"
+  worker_name = "${var.name}-async-worker"
+  saga_name_suffix = "rest"
 }
 
 resource "aws_lambda_function" "compute" {
@@ -9,7 +11,11 @@ resource "aws_lambda_function" "compute" {
   runtime       = "java21"
   filename      = "${path.module}/lambda_shim/main.zip"
 
-  timeout     = "6"
+  tracing_config {
+    mode = "Active"
+  }
+
+  timeout = "6"
   memory_size = "1024" # Cheapest
   architectures = ["arm64"] # Cheaper
   snap_start {
@@ -18,38 +24,6 @@ resource "aws_lambda_function" "compute" {
   publish = true
 }
 
-data "aws_iam_policy_document" "receive_sqs_messages_policy_data" {
-  statement {
-    # sid       = ""
-    actions   = [
-      "sqs:ReceiveMessage",
-      "sqs:DeleteMessage",
-      "sqs:GetQueueAttributes"
-    ]
-    resources = [
-      aws_sqs_queue.async_queue.arn
-    ]
-  }
-}
-
-resource "aws_iam_policy" "receive_sqs_messages_policy" {
-  name   = "RecieveSqsMessagesPolicy"
-  policy = data.aws_iam_policy_document.receive_sqs_messages_policy_data.json
-}
-
-resource "aws_iam_role_policy_attachment" "attach_sqs_policy_to_lambda_execution" {
-  role       = aws_iam_role.jbs_lambda_role.name
-  policy_arn = aws_iam_policy.receive_sqs_messages_policy.arn
-}
-
-resource "aws_lambda_event_source_mapping" "sqs_to_lambda" {
-  event_source_arn = aws_sqs_queue.async_queue.arn
-  function_name    = aws_lambda_function.compute.arn
-  batch_size       = 1              # or more, depending on your use case
-  enabled          = true
-  # 1 for debugging, 2 or 3 for production
-  # maximum_retry_attempts = 1 # not set here?
-}
 
 resource "aws_api_gateway_rest_api" "rest" {
   name        = "${var.name}-rest-gateway-api"
@@ -62,22 +36,14 @@ resource "aws_api_gateway_rest_api" "rest" {
 resource "aws_api_gateway_resource" "sync_proxy" {
   rest_api_id = aws_api_gateway_rest_api.rest.id
   parent_id   = aws_api_gateway_rest_api.rest.root_resource_id
-  # path_part   = "sync"
-  path_part = "{proxy+}"
+  path_part   = "{proxy+}"
 }
-
-# resource "aws_api_gateway_resource" "sync_proxy_plus" {
-#   rest_api_id = aws_api_gateway_rest_api.rest.id
-#   parent_id   = aws_api_gateway_resource.sync_proxy.id
-#   path_part   = "{proxy+}"
-# }
 
 
 resource "aws_api_gateway_method" "proxy_method" {
   rest_api_id   = aws_api_gateway_rest_api.rest.id
-  # resource_id   = aws_api_gateway_resource.sync_proxy_plus.id
   resource_id   = aws_api_gateway_resource.sync_proxy.id
-  http_method   = "ANY"
+  http_method   = "POST"
   authorization = "NONE"
   request_parameters = {
     "method.request.path.proxy" = true
@@ -86,7 +52,6 @@ resource "aws_api_gateway_method" "proxy_method" {
 
 resource "aws_api_gateway_integration" "proxy_integration" {
   rest_api_id             = aws_api_gateway_rest_api.rest.id
-  # resource_id             = aws_api_gateway_resource.sync_proxy_plus.id
   resource_id             = aws_api_gateway_resource.sync_proxy.id
   http_method             = aws_api_gateway_method.proxy_method.http_method
   integration_http_method = "POST"
@@ -98,11 +63,9 @@ resource "aws_api_gateway_integration" "proxy_integration" {
 resource "aws_api_gateway_deployment" "rest_deploy" {
   depends_on = [
     aws_api_gateway_integration.proxy_integration,
-    aws_api_gateway_integration.async_proxy_integration
   ]
   rest_api_id = aws_api_gateway_rest_api.rest.id
   description = "Deployment for ${var.name}"
-  # stage_name is intentionally omitted per best practice
 }
 
 
@@ -110,24 +73,6 @@ resource "aws_api_gateway_account" "main" {
   cloudwatch_role_arn = aws_iam_role.apigw_cloudwatch_role.arn
 }
 
-resource "aws_iam_role" "apigw_cloudwatch_role" {
-  name = "${var.name}-apigw-cloudwatch-role"
-
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [{
-      Effect = "Allow"
-      Principal = {
-        Service = "apigateway.amazonaws.com"
-      }
-      Action = "sts:AssumeRole"
-    }]
-  })
-}
-resource "aws_iam_role_policy_attachment" "apigw_cloudwatch_logs" {
-  role       = aws_iam_role.apigw_cloudwatch_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
-}
 
 resource "aws_cloudwatch_log_group" "api_gateway_logs" {
   name              = "/aws/apigateway/${var.name}-rest"
@@ -142,27 +87,30 @@ resource "aws_api_gateway_stage" "rest_stage" {
 
   depends_on = [aws_api_gateway_account.main]
 
+  xray_tracing_enabled = true
+
+
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gateway_logs.arn
     format = jsonencode({
-      requestId       = "$context.requestId"
-      ip              = "$context.identity.sourceIp"
-      caller          = "$context.identity.caller"
-      user            = "$context.identity.user"
-      requestTime     = "$context.requestTime"
-      httpMethod      = "$context.httpMethod"
-      resourcePath    = "$context.resourcePath"
-      status          = "$context.status"
-      protocol        = "$context.protocol"
-      responseLength  = "$context.responseLength"
+      requestId    = "$context.requestId"
+      ip           = "$context.identity.sourceIp"
+      caller       = "$context.identity.caller"
+      user         = "$context.identity.user"
+      requestTime  = "$context.requestTime"
+      httpMethod   = "$context.httpMethod"
+      resourcePath = "$context.resourcePath"
+      status       = "$context.status"
+      protocol     = "$context.protocol"
+      responseLength = "$context.responseLength"
 
       # debug
-      authorizerError: "$context.authorizer.error"
-      error_message:"$context.error.message"
-      error_string:"$context.error.messageString"
-      error_response_type:"$context.error.responseType"
-      integration_error: "$context.integration.error"
-      integration_status: "$context.integration.integrationStatus"
+      authorizerError : "$context.authorizer.error"
+      error_message : "$context.error.message"
+      error_string : "$context.error.messageString"
+      error_response_type : "$context.error.responseType"
+      integration_error : "$context.integration.error"
+      integration_status : "$context.integration.integrationStatus"
     })
   }
 
@@ -174,21 +122,13 @@ resource "aws_api_gateway_method_settings" "all" {
   method_path = "*/*"
 
   settings {
-      // resource_path = "/*"
-      // http_method   = "*"
-      logging_level = "INFO"
-      metrics_enabled = true
-      data_trace_enabled = false
+    // resource_path = "/*"
+    // http_method   = "*"
+    logging_level      = "INFO"
+    metrics_enabled    = true
+    data_trace_enabled = false
   }
 }
-
-# resource "aws_lambda_permission" "allow_apigw" {
-#   statement_id  = "AllowAPIGatewayInvoke"
-#   action        = "lambda:InvokeFunction"
-#   function_name = aws_lambda_function.compute.function_name
-#   principal     = "apigateway.amazonaws.com"
-#   source_arn    = "${aws_api_gateway_rest_api.rest.execution_arn}/*/*/sync/*"
-# }
 
 resource "aws_lambda_permission" "allow_apigw" {
   statement_id  = "AllowAPIGatewayInvoke"
@@ -199,62 +139,119 @@ resource "aws_lambda_permission" "allow_apigw" {
 }
 
 resource "aws_cloudwatch_log_group" "lambda_log" {
-  name = "/aws/lambda/${local.lambda_name}"
+  name              = "/aws/lambda/${local.lambda_name}"
   retention_in_days = 5
 }
 
 
+# resource "aws_api_gateway_method" "options" {
+#   rest_api_id   = aws_api_gateway_rest_api.rest.id
+#   resource_id   = aws_api_gateway_resource.sync_proxy.id
+#   http_method   = "OPTIONS"
+#   authorization = "NONE"
+# }
+
+# resource "aws_api_gateway_integration" "options_integration" {
+#   rest_api_id          = aws_api_gateway_rest_api.rest.id
+#   resource_id          = aws_api_gateway_resource.sync_proxy.id
+#   http_method          = aws_api_gateway_method.options.http_method
+#   type                 = "MOCK"
+#   passthrough_behavior = "WHEN_NO_MATCH"
+#
+#   request_templates = {
+#     "application/json" = <<EOF
+# {
+#   "statusCode": 200
+# }
+# EOF
+#   }
+# }
+#
+# resource "aws_api_gateway_method_response" "options_response" {
+#   rest_api_id = aws_api_gateway_rest_api.rest.id
+#   resource_id = aws_api_gateway_resource.sync_proxy.id
+#   http_method = aws_api_gateway_method.options.http_method
+#   status_code = "200"
+#
+#   response_parameters = {
+#     "method.response.header.Access-Control-Allow-Headers" = true
+#     "method.response.header.Access-Control-Allow-Methods" = true
+#     "method.response.header.Access-Control-Allow-Origin"  = true
+#   }
+# }
+#
+# resource "aws_api_gateway_integration_response" "options_integration_response" {
+#   rest_api_id = aws_api_gateway_rest_api.rest.id
+#   resource_id = aws_api_gateway_resource.sync_proxy.id
+#   http_method = aws_api_gateway_method.options.http_method
+#   status_code = aws_api_gateway_method_response.options_response.status_code
+#
+#   response_parameters = {
+#     "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+#     "method.response.header.Access-Control-Allow-Methods" = "'GET,POST,OPTIONS,PUT,DELETE'"
+#     "method.response.header.Access-Control-Allow-Origin"  = "'${join(",", var.cors_origin)}'"
+#   }
+#
+#   response_templates = {
+#     "application/json" = ""
+#   }
+# }
 
 
-resource "aws_api_gateway_method" "options" {
-  rest_api_id   = aws_api_gateway_rest_api.rest.id
-  resource_id   = aws_api_gateway_resource.sync_proxy.id
-  http_method   = "OPTIONS"
-  authorization = "NONE"
-}
+# attempt 2 at cors
+# resource "aws_api_gateway_integration_response" "options_integration_response" {
+#   rest_api_id = aws_api_gateway_rest_api.rest.id
+#   resource_id = aws_api_gateway_resource.sync_proxy.id
+#   http_method = aws_api_gateway_method.options.http_method
+#   status_code = aws_api_gateway_method_response.options_response.status_code
+#
+#   response_parameters = {
+#     "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+#     "method.response.header.Access-Control-Allow-Methods" = "'GET,POST,OPTIONS,PUT,DELETE'"
+#     "method.response.header.Access-Control-Allow-Origin"  = "'${join(",", var.cors_origin)}'"
+#   }
+#
+#   response_templates = {
+#     "application/json" = ""
+#   }
+# }
+#
+# resource "aws_api_gateway_gateway_response" "default_4xx" {
+#   rest_api_id   = aws_api_gateway_rest_api.rest.id
+#   response_type = "DEFAULT_4XX"
+#
+#   response_parameters = {
+#     "gatewayresponse.header.Access-Control-Allow-Origin" = "'*'" // Replace '*' with your frontend's domain if needed
+#     "gatewayresponse.header.Access-Control-Allow-Methods" = "'GET,POST,OPTIONS,PUT,DELETE'"
+#     "gatewayresponse.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+#   }
+#
+#   response_templates = {
+#     "application/json" = "{\"message\":$context.error.messageString}"
+#   }
+# }
+#
+# resource "aws_api_gateway_gateway_response" "default_5xx" {
+#   rest_api_id   = aws_api_gateway_rest_api.rest.id
+#   response_type = "DEFAULT_5XX"
+#
+#   response_parameters = {
+#     "gatewayresponse.header.Access-Control-Allow-Origin" = "'*'" // Replace '*' with your frontend's domain if needed
+#     "gatewayresponse.header.Access-Control-Allow-Methods" = "'GET,POST,OPTIONS,PUT,DELETE'"
+#     "gatewayresponse.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+#   }
+#
+#   response_templates = {
+#     "application/json" = "{\"message\":$context.error.messageString}"
+#   }
+# }
 
-resource "aws_api_gateway_integration" "options_integration" {
-  rest_api_id             = aws_api_gateway_rest_api.rest.id
-  resource_id             = aws_api_gateway_resource.sync_proxy.id
-  http_method             = aws_api_gateway_method.options.http_method
-  type                    = "MOCK"
-  passthrough_behavior    = "WHEN_NO_MATCH"
 
-  request_templates = {
-    "application/json" = <<EOF
-{
-  "statusCode": 200
-}
-EOF
-  }
-}
+module "cors" {
+  source  = "squidfunk/api-gateway-enable-cors/aws"
+  version = "0.3.3"
 
-resource "aws_api_gateway_method_response" "options_response" {
-  rest_api_id = aws_api_gateway_rest_api.rest.id
-  resource_id = aws_api_gateway_resource.sync_proxy.id
-  http_method = aws_api_gateway_method.options.http_method
-  status_code = "200"
-
-  response_parameters = {
-    "method.response.header.Access-Control-Allow-Headers" = true
-    "method.response.header.Access-Control-Allow-Methods" = true
-    "method.response.header.Access-Control-Allow-Origin"  = true
-  }
-}
-
-resource "aws_api_gateway_integration_response" "options_integration_response" {
-  rest_api_id = aws_api_gateway_rest_api.rest.id
-  resource_id = aws_api_gateway_resource.sync_proxy.id
-  http_method = aws_api_gateway_method.options.http_method
-  status_code = aws_api_gateway_method_response.options_response.status_code
-
-  response_parameters = {
-    "method.response.header.Access-Control-Allow-Headers" = "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-    "method.response.header.Access-Control-Allow-Methods" = "'GET,POST,OPTIONS,PUT,DELETE'"
-    "method.response.header.Access-Control-Allow-Origin"  = "'${join(",", var.cors_origin)}'"
-  }
-
-  response_templates = {
-    "application/json" = ""
-  }
+  api_id          = aws_api_gateway_rest_api.rest.id
+  api_resource_id = aws_api_gateway_resource.sync_proxy.id
+  allow_origin = join(",", var.cors_origin)
 }

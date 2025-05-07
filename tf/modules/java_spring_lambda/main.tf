@@ -1,6 +1,7 @@
 locals {
   lambda_name = "${var.name}-web-api"
   worker_name = "${var.name}-async-worker"
+  saga_name_suffix ="http"
 }
 # web api
 resource "aws_lambda_function" "web_api" {

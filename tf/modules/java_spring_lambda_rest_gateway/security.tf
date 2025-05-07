@@ -40,3 +40,24 @@ resource "aws_iam_role_policy" "jsb_lambda_role_policy" {
   policy = data.aws_iam_policy_document.jsb_lambda_execution_policy_document.json
   role   = aws_iam_role.jbs_lambda_role.name
 }
+
+
+
+resource "aws_iam_role" "apigw_cloudwatch_role" {
+  name = "${var.name}-apigw-cloudwatch-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [{
+      Effect = "Allow"
+      Principal = {
+        Service = "apigateway.amazonaws.com"
+      }
+      Action = "sts:AssumeRole"
+    }]
+  })
+}
+resource "aws_iam_role_policy_attachment" "apigw_cloudwatch_logs" {
+  role       = aws_iam_role.apigw_cloudwatch_role.name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+}
