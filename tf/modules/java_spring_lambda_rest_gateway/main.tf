@@ -24,6 +24,14 @@ resource "aws_lambda_function" "compute" {
   publish = true
 }
 
+resource "aws_lambda_alias" "web_api_live" {
+  name             = "live"
+  description      = "Alias for the latest published version"
+  function_name    = aws_lambda_function.compute.function_name
+  function_version = aws_lambda_function.compute.version
+}
+
+
 
 resource "aws_api_gateway_rest_api" "rest" {
   name        = "${var.name}-rest-gateway-api"

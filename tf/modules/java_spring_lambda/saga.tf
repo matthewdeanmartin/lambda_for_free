@@ -25,6 +25,14 @@ resource "aws_lambda_function" "write_db" {
   publish = true
 }
 
+resource "aws_lambda_alias" "write_db_alias" {
+  name             = "live"
+  description      = "Alias for the latest published version"
+  function_name    = aws_lambda_function.write_db.function_name
+  function_version = aws_lambda_function.write_db.version
+}
+
+
 resource "aws_lambda_function" "unwrite_db" {
   function_name = "unwrite_db-${local.saga_name_suffix}"
   role          = aws_iam_role.lambda_exec.arn
@@ -45,6 +53,13 @@ resource "aws_lambda_function" "unwrite_db" {
     apply_on ="PublishedVersions"
   }
   publish = true
+}
+
+resource "aws_lambda_alias" "unwrite_db_alias" {
+  name             = "live"
+  description      = "Alias for the latest published version"
+  function_name    = aws_lambda_function.unwrite_db.function_name
+  function_version = aws_lambda_function.unwrite_db.version
 }
 
 resource "aws_lambda_function" "call_api" {
@@ -70,6 +85,13 @@ resource "aws_lambda_function" "call_api" {
   publish = true
 }
 
+resource "aws_lambda_alias" "call_api_alias" {
+  name             = "live"
+  description      = "Alias for the latest published version"
+  function_name    = aws_lambda_function.call_api.function_name
+  function_version = aws_lambda_function.call_api.version
+}
+
 resource "aws_lambda_function" "cancel_api" {
   function_name = "cancel_api-${local.saga_name_suffix}"
   role          = aws_iam_role.lambda_exec.arn
@@ -90,6 +112,13 @@ resource "aws_lambda_function" "cancel_api" {
     apply_on ="PublishedVersions"
   }
   publish = true
+}
+
+resource "aws_lambda_alias" "cancel_api_alias" {
+  name             = "live"
+  description      = "Alias for the latest published version"
+  function_name    = aws_lambda_function.cancel_api.function_name
+  function_version = aws_lambda_function.cancel_api.version
 }
 
 # IAM Role

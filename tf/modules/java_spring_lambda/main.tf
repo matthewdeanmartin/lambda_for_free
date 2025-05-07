@@ -19,8 +19,13 @@ resource "aws_lambda_function" "web_api" {
     apply_on ="PublishedVersions"
   }
   publish = true
+}
 
-
+resource "aws_lambda_alias" "web_api_live" {
+  name             = "live"
+  description      = "Alias for the latest published version"
+  function_name    = aws_lambda_function.web_api.function_name
+  function_version = aws_lambda_function.web_api.version
 }
 
 
