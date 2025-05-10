@@ -19,3 +19,10 @@ output "angular_website_url" {
   value = module.angular_website.bucket_domain_name
 }
 
+output "login_url" {
+  value = module.cognito.login_url
+}
+
+output "signup_url" {
+  value = module.cognito.signup_url
+}

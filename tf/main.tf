@@ -59,3 +59,18 @@ module "poor_mans_rds" {
   name        = "tf-poc-rds"
   environment = "dev"
 }
+
+
+module "cognito" {
+  source = "./modules/basic_cognito"
+
+  product       = "hello"
+  environment   = "dev"
+  domain_prefix = "hello-auth-dev"
+
+  django_callback_urls  = ["https://example.com/login/callback"]
+  android_callback_urls = ["exampleapp://callback"]
+  lambda_callback_urls  = ["https://example.com/callback"]
+}
+
+

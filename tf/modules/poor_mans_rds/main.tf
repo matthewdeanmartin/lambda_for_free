@@ -116,4 +116,7 @@ resource "aws_instance" "postgres" {
     Name = var.name
     Environment = var.environment
   }
+  lifecycle {
+    ignore_changes = [associate_public_ip_address]
+  }
 }

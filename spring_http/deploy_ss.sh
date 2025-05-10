@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 
-# Usage: ./deploy_lambda.sh <function_name> [alias] [zip_file] [region]
+# Usage: ./deploy_lambda_ss.sh <function_name> [alias] [zip_file] [region]
 
 set -euo pipefail
 
 # Inputs
 LAMBDA_FUNCTION_NAME="${1:-tf-poc-web-api}"
-ALIAS_NAME="${2:-}"
+ALIAS_NAME="${2:-live}"
 ZIP_FILE="${3:-}"
 AWS_REGION="${4:-us-east-2}"
 
@@ -68,7 +68,6 @@ echo "SnapStart enabled for published versions."
 if [[ -n "$ALIAS_NAME" ]]; then
   echo "Updating alias '$ALIAS_NAME' to version $VERSION"
 
-  # Try to update the alias or create it if it doesn't exist
   if aws lambda get-alias --function-name "$LAMBDA_FUNCTION_NAME" --name "$ALIAS_NAME" --region "$AWS_REGION" >/dev/null 2>&1; then
     aws lambda update-alias \
       --function-name "$LAMBDA_FUNCTION_NAME" \
@@ -86,4 +85,20 @@ if [[ -n "$ALIAS_NAME" ]]; then
   echo "Alias '$ALIAS_NAME' now points to version $VERSION."
 fi
 
-echo "✅ Deployment complete with SnapStart and versioning."
+# Step 5: Clean up old versions, keeping only the latest two
+echo "Cleaning up old Lambda versions..."
+
+VERSIONS_TO_DELETE=$(aws lambda list-versions-by-function \
+  --function-name "$LAMBDA_FUNCTION_NAME" \
+  --region "$AWS_REGION" \
+  --query 'Versions[?Version!=`$LATEST`].[Version]' \
+  --output text | sort -n | head -n -2)
+echo $VERSIONS_TO_DELETE
+for v in $VERSIONS_TO_DELETE; do
+  echo "Deleting version $v"
+  aws lambda delete-function \
+    --function-name "${LAMBDA_FUNCTION_NAME}:${v}" \
+    --region "$AWS_REGION"
+done
+
+echo "✅ Deployment complete with SnapStart, versioning, and cleanup."
