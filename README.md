@@ -1,6 +1,9 @@
 # lambda_for_free
 The goal is to demo multiple design and architectural patterns that use AWS lambdas and API Gateway.
 
+## Archived!
+
+This is more of a POC than a ongoing project. If I find anything useful here, I should extract to new repo.
 
 ## How is this cheap
 - Lambdas are cheap
